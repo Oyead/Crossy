@@ -1,0 +1,60 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model SearchQuery {
+  id              String           @id @default(cuid())
+  rawInput        String
+  mode            String // "title" | "vibe"
+  resolvedType    String? // media type detected if mode === "title"
+  embedding       Unsupported("vector(1536)")?
+  createdAt       DateTime         @default(now())
+  recommendations Recommendation[]
+
+  @@index([rawInput])
+}
+
+model Recommendation {
+  id          String      @id @default(cuid())
+  queryId     String
+  query       SearchQuery @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  mediaType   String // movie | tv | music | game | book
+  title       String
+  externalId  String?
+  sourceApi   String? // tmdb | spotify | igdb | google_books
+  verified    Boolean     @default(false)
+  matchReason String
+  metadata    Json // poster url, year, artist/author, etc.
+  createdAt   DateTime    @default(now())
+  favorites   Favorite[]
+
+  @@index([queryId])
+  @@index([mediaType])
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  image     String?
+  createdAt DateTime   @default(now())
+  favorites Favorite[]
+}
+
+model Favorite {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendationId String
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@unique([userId, recommendationId])
+}
