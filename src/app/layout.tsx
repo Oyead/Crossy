@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Similar — cross-media recommendations",
-  description: "Find movies, TV, music, games, and books similar to what you already love.",
+  title: "Crossy",
+  description: "Find the next favorite movie, show, album, game, or book in any medium.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
