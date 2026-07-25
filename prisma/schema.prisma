@@ -9,11 +9,29 @@ datasource db {
   extensions = [vector]
 }
 
+model Media {
+  id              String           @id @default(cuid())
+  externalId      String           // e.g., "550", "elden-ring"
+  mediaType       String           // "movie" | "game" | "book" | "song"
+  sourceApi       String           // "tmdb" | "rawg" | "google_books" | "spotify"
+  title           String
+  posterUrl       String?
+  metadata        Json             // Full raw response, genres, release year, etc.
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  recommendations Recommendation[]
+  favorites       Favorite[]
+
+  @@unique([mediaType, externalId]) // Guarantees no duplicate movies/games in your DB
+  @@index([mediaType])
+}
+
 model SearchQuery {
   id              String           @id @default(cuid())
   rawInput        String
-  mode            String // "title" | "vibe"
-  resolvedType    String? // media type detected if mode === "title"
+  mode            String           // "title" | "vibe"
+  resolvedType    String?
   embedding       Unsupported("vector(1536)")?
   createdAt       DateTime         @default(now())
   recommendations Recommendation[]
@@ -25,18 +43,17 @@ model Recommendation {
   id          String      @id @default(cuid())
   queryId     String
   query       SearchQuery @relation(fields: [queryId], references: [id], onDelete: Cascade)
-  mediaType   String // movie | tv | music | game | book
-  title       String
-  externalId  String?
-  sourceApi   String? // tmdb | spotify | igdb | google_books
+  
+  // Link to the centralized Media table
+  mediaId     String
+  media       Media       @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
   verified    Boolean     @default(false)
   matchReason String
-  metadata    Json // poster url, year, artist/author, etc.
   createdAt   DateTime    @default(now())
-  favorites   Favorite[]
 
   @@index([queryId])
-  @@index([mediaType])
+  @@index([mediaId])
 }
 
 model User {
@@ -49,12 +66,14 @@ model User {
 }
 
 model Favorite {
-  id               String         @id @default(cuid())
-  userId           String
-  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recommendationId String
-  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
-  createdAt        DateTime       @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Users now favorite the Media item directly, not a temporary recommendation
+  mediaId   String
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
-  @@unique([userId, recommendationId])
+  @@unique([userId, mediaId])
 }
