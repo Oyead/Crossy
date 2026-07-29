@@ -1,14 +1,10 @@
-// src/lib/redis.ts
 import { Redis } from '@upstash/redis';
-
-// Create a Redis client from environment variables
-// This singleton instance can be used throughout the application
 export const redis = Redis.fromEnv();
 
 /**
- * Get a value from Redis by key
- * @param key - The key to retrieve
- * @returns The value or null if not found
+ * 
+ * @param key 
+ * @returns 
  */
 export async function get<T = any>(key: string): Promise<T | null> {
   const value = await redis.get(key);
@@ -16,11 +12,11 @@ export async function get<T = any>(key: string): Promise<T | null> {
 }
 
 /**
- * Set a value in Redis with optional expiration
- * @param key - The key to store
- * @param value - The value to store
- * @param expire - Expiration time in seconds (optional)
- * @returns Success status
+ 
+ * @param key 
+ * @param value 
+ * @param expire 
+ * @returns 
  */
 export async function set(
   key: string,
@@ -36,18 +32,18 @@ export async function set(
 }
 
 /**
- * Delete a key from Redis
- * @param key - The key to delete
- * @returns Number of keys deleted
+ * 
+ * @param key
+ * @returns
  */
 export async function del(key: string): Promise<number> {
   return await redis.del(key);
 }
 
 /**
- * Check if a key exists in Redis
- * @param key - The key to check
- * @returns True if key exists
+ *
+ * @param key 
+ * @returns 
  */
 export async function exists(key: string): Promise<boolean> {
   const count = await redis.exists(key);
@@ -55,28 +51,25 @@ export async function exists(key: string): Promise<boolean> {
 }
 
 /**
- * Increment a numeric value in Redis
- * @param key - The key to increment
- * @returns New value after increment
+ * @param key
+ * @returns
  */
 export async function incr(key: string): Promise<number> {
   return await redis.incr(key);
 }
 
 /**
- * Add to a set in Redis
- * @param key - The set key
- * @param value - The value to add
- * @returns Number of elements added
+ * @param key 
+ * @param value 
+ * @returns 
  */
 export async function sadd(key: string, value: string): Promise<number> {
   return await redis.sadd(key, value);
 }
 
 /**
- * Get all members of a set in Redis
- * @param key - The set key
- * @returns Array of set members
+ * @param key 
+ * @returns 
  */
 export async function smembers(key: string): Promise<string[]> {
   return await redis.smembers(key);
