@@ -1,4 +1,5 @@
 import { MediaSearchProvider, MediaResult } from '../MediaSearchProvider';
+import { fetchWithTimeout } from '../fetchWithTimeout';
 
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
@@ -8,7 +9,7 @@ export class TmdbProvider implements MediaSearchProvider {
     if (!TMDB_API_KEY) return [];
 
     try {
-      const response = await fetch(`${TMDB_BASE_URL}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+      const response = await fetchWithTimeout(`${TMDB_BASE_URL}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
       if (!response.ok) {
         throw new Error(`TMDB search failed: ${response.status}`);
       }
@@ -20,20 +21,32 @@ export class TmdbProvider implements MediaSearchProvider {
     }
   }
 
-  async getDetails(id: string): Promise<MediaResult | null> {
+  async getDetails(id: string, type?: string): Promise<MediaResult | null> {
     if (!TMDB_API_KEY) return null;
 
     try {
-      const movieResponse = await fetch(`${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}`);
-      if (movieResponse.ok) {
-        const movieData = await movieResponse.json();
-        return this.mapToMediaResult(movieData, 'movie');
+      // TMDB ids collide across namespaces, so when the media type is known
+      // (movie vs tv) fetch from the correct endpoint directly.
+      if (type === 'tv') {
+        const tvResponse = await fetchWithTimeout(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}`);
+        if (!tvResponse.ok) return null;
+        return this.mapToMediaResult(await tvResponse.json(), 'tv');
       }
 
-      const tvResponse = await fetch(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}`);
+      if (type === 'movie') {
+        const movieResponse = await fetchWithTimeout(`${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}`);
+        if (!movieResponse.ok) return null;
+        return this.mapToMediaResult(await movieResponse.json(), 'movie');
+      }
+
+      const movieResponse = await fetchWithTimeout(`${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}`);
+      if (movieResponse.ok) {
+        return this.mapToMediaResult(await movieResponse.json(), 'movie');
+      }
+
+      const tvResponse = await fetchWithTimeout(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}`);
       if (tvResponse.ok) {
-        const tvData = await tvResponse.json();
-        return this.mapToMediaResult(tvData, 'tv');
+        return this.mapToMediaResult(await tvResponse.json(), 'tv');
       }
 
       return null;
@@ -60,6 +73,7 @@ export class TmdbProvider implements MediaSearchProvider {
     }
 
     return {
+      ...item,
       id: String(item.id),
       title: item.title || item.name || 'Unknown Title',
       description: item.overview || item.description || '',
@@ -70,7 +84,6 @@ export class TmdbProvider implements MediaSearchProvider {
       rating: item.vote_average ? Number(item.vote_average) : undefined,
       provider: 'tmdb',
       type: mediaType,
-      ...item
     };
   }
 }
