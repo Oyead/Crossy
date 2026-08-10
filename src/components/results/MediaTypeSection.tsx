@@ -8,7 +8,10 @@ interface MediaTypeSectionProps {
     title: string;
     description?: string;
     coverImage?: string;
+    rating?: number;
     provider: string;
+    reason?: string;
+    confidence?: number;
   }>;
 }
 
@@ -18,18 +21,24 @@ export default function MediaTypeSection({ type, title, media }: MediaTypeSectio
   }
 
   return (
-    <section className="mb-8">
-      <h2 className="text-2xl font-bold mb-4">{title}</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <section className="mb-10">
+      <h2 className="mb-4 flex items-center gap-3 text-xl font-bold tracking-tight">
+        <span className="h-5 w-1 rounded-full bg-accent" />
+        {title}
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {media.map((item) => (
           <MediaCard
-            key={item.id}
+            key={`${item.provider}-${item.id}`}
             id={item.id}
             title={item.title}
             description={item.description}
             coverImage={item.coverImage}
+            rating={item.rating}
             type={type}
             provider={item.provider}
+            reason={item.reason}
+            confidence={item.confidence}
           />
         ))}
       </div>
