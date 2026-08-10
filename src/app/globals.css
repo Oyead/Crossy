@@ -1,60 +1,40 @@
-:root {
-  --background: #000000;
-  --foreground: #ffffff;
-  --card: #111827;
-  --border: #374151;
-  --muted: #1f2937;
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
-  --secondary: #64748b;
-  --accent: #eab308;
-  --radius: 0.5rem;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: system-ui, sans-serif;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-.container {
-  width: 100%;
-  margin-right: auto;
-  margin-left: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
-}
-
-@media (min-width: 640px) {
-  .container {
-    max-width: 640px;
+@layer base {
+  :root {
+    --background: #15100b;
+    --foreground: #f3ead9;
+    --card: #201811;
+    --card-foreground: #f3ead9;
+    --popover: #201811;
+    --popover-foreground: #f3ead9;
+    --primary: #a06a3b;
+    --primary-foreground: #fdf8f0;
+    --secondary: #553a22;
+    --secondary-foreground: #f3ead9;
+    --muted: #2a2017;
+    --muted-foreground: #a2907c;
+    --accent: #e6a23c;
+    --accent-foreground: #1a120a;
+    --destructive: #c94f3d;
+    --destructive-foreground: #fdf8f0;
+    --border: #3a2b1d;
+    --input: #3a2b1d;
+    --ring: #a06a3b;
+    --radius: 0.625rem;
   }
-}
 
-@media (min-width: 768px) {
-  .container {
-    max-width: 768px;
+  * {
+    @apply border-border;
   }
-}
 
-@media (min-width: 1024px) {
-  .container {
-    max-width: 1024px;
+  body {
+    @apply bg-background text-foreground antialiased;
   }
-}
 
-@media (min-width: 1280px) {
-  .container {
-    max-width: 1280px;
-  }
-}
-
-@media (min-width: 1536px) {
-  .container {
-    max-width: 1536px;
+  ::selection {
+    @apply bg-accent text-accent-foreground;
   }
 }
