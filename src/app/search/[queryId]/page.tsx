@@ -1,22 +1,33 @@
 import { notFound } from "next/navigation";
 import ResultsGrid from "@/components/results/ResultsGrid";
+import { processMediaQuery } from "@/server/pipeline/mediaPipeline";
 
 export default async function Page({ params }: { params: { queryId: string } }) {
   const { queryId } = params;
   const query = decodeURIComponent(queryId);
 
-  // Fetch results from our own API
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/search?q=${encodeURIComponent(query)}`);
-  if (!res.ok) {
+  const results = await processMediaQuery(query);
+  if (!results) {
     notFound();
   }
-  const results = await res.json();
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Search results for: "{query}"</h1>
+    <div className="container py-10">
+      <div className="mb-8">
+        <p className="text-sm uppercase tracking-widest text-accent mb-2">
+          Search results
+        </p>
+        <h1 className="text-3xl font-bold tracking-tight">
+          Results for &quot;{query}&quot;
+        </h1>
+      </div>
       {results.length === 0 ? (
-        <p className="text-center text-muted-foreground">No results found.</p>
+        <div className="rounded-lg border border-dashed border-border bg-card/50 p-16 text-center">
+          <p className="text-lg font-medium">No results found</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Try a different movie, show, album, game, or book title.
+          </p>
+        </div>
       ) : (
         <ResultsGrid results={results} />
       )}
