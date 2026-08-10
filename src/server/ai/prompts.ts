@@ -12,7 +12,7 @@ For each result, include:
 - Release date (if applicable)
 - Cover image URL (if available)
 - Rating (if available, on a scale of 0-10)
-- Provider (which service the result came from: tmdb, spotify, igdb, or googleBooks)
+- Provider (which service the result came from: tmdb, itunes, rawg, or openLibrary)
 - Type (movie, tv, music, book, or game)
 
 Format your response as a JSON array of objects with these fields.
@@ -31,17 +31,17 @@ export function buildMediaRecommendationPrompt(
 You are a media recommendation engine. Based on the user's preferences:
 "${userPreferences}"
 
-And the following available media:
+Here is a numbered list of available media found by searching multiple APIs
+(movies/TV from tmdb, music from itunes, games from rawg, books from openLibrary):
 ${JSON.stringify(availableMedia, null, 2)}
 
-Provide personalized recommendations. For each recommendation, include:
-- mediaId: The ID of the media from the provider
-- provider: Which service it's from (tmdb, spotify, igdb, googleBooks)
+Select the 5-10 best matches from this list. For each recommendation, include:
+- index: The position (0-based) of the media in the numbered list above
 - reason: Why you're recommending this media to the user
 - confidence: A number between 0 and 1 indicating how confident you are in this recommendation
 
+Only reference items that actually exist in the list by their correct index.
 Format your response as a JSON object with a "recommendations" array containing these objects.
-Limit to 5-10 high-quality recommendations.
 `;
 }
 
