@@ -1,8 +1,16 @@
 import { MediaSearchProvider } from './MediaSearchProvider';
 import { TmdbProvider } from './providers/tmdb';
-import { SpotifyProvider } from './providers/spotify';
-import { IgdbProvider } from './providers/igdb';
-import { GoogleBooksProvider } from './providers/googleBooks';
+import { ItunesProvider } from './providers/itunes';
+import { RawgProvider } from './providers/rawg';
+import { OpenLibraryProvider } from './providers/openLibrary';
+
+const MEDIA_TYPE_TO_PROVIDER: Record<string, string> = {
+  movie: 'tmdb',
+  tv: 'tmdb',
+  music: 'itunes',
+  book: 'openlibrary',
+  game: 'rawg',
+};
 
 class ProviderRegistry {
   private providers: Map<string, MediaSearchProvider> = new Map();
@@ -12,10 +20,9 @@ class ProviderRegistry {
     if (this.initialized) return;
 
     this.register('tmdb', new TmdbProvider());
-    this.register('spotify', new SpotifyProvider());
-    this.register('igdb', new IgdbProvider());
-    this.register('googleBooks', new GoogleBooksProvider());
-
+    this.register('itunes', new ItunesProvider());
+    this.register('rawg', new RawgProvider());
+    this.register('openLibrary', new OpenLibraryProvider());
     this.initialized = true;
   }
 
@@ -37,6 +44,12 @@ class ProviderRegistry {
     if (!this.initialized) this.initialize();
     return this.providers.has(name.toLowerCase());
   }
+
+  getProviderForMediaType(mediaType: string): MediaSearchProvider | undefined {
+    if (!this.initialized) this.initialize();
+    const providerName = MEDIA_TYPE_TO_PROVIDER[mediaType.toLowerCase()];
+    return providerName ? this.providers.get(providerName) : undefined;
+  }
 }
 
 export const providerRegistry = new ProviderRegistry();
@@ -47,6 +60,11 @@ providerRegistry.initialize();
 // Helper function to register a provider (for dynamic registration)
 export function registerProvider(name: string, provider: MediaSearchProvider) {
   providerRegistry.register(name, provider);
+}
+
+// Map a media type (movie, tv, music, book, game) to its provider
+export function providerForMediaType(mediaType: string): MediaSearchProvider | undefined {
+  return providerRegistry.getProviderForMediaType(mediaType);
 }
 
 export default providerRegistry;
