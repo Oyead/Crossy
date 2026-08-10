@@ -6,14 +6,17 @@ interface ResultsGridProps {
     title: string;
     description?: string;
     coverImage?: string;
+    rating?: number;
     provider: string;
     type: string;
-    matchReason?: string;
+    reason?: string;
+    confidence?: number;
   }>;
 }
 
+const TYPE_ORDER = ["movie", "tv", "music", "book", "game"];
+
 export default function ResultsGrid({ results }: ResultsGridProps) {
-  // Group results by type
   const grouped = results.reduce((acc, item) => {
     if (!acc[item.type]) {
       acc[item.type] = [];
@@ -22,7 +25,6 @@ export default function ResultsGrid({ results }: ResultsGridProps) {
     return acc;
   }, {} as Record<string, Array<typeof results[0]>>);
 
-  // Define type labels
   const typeLabels: Record<string, string> = {
     movie: "Movies",
     tv: "TV Shows",
@@ -31,9 +33,13 @@ export default function ResultsGrid({ results }: ResultsGridProps) {
     game: "Games",
   };
 
+  const types = Object.keys(grouped).sort(
+    (a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b)
+  );
+
   return (
     <div>
-      {Object.keys(grouped).map((type) => (
+      {types.map((type) => (
         <MediaTypeSection
           key={type}
           type={type}
@@ -43,7 +49,10 @@ export default function ResultsGrid({ results }: ResultsGridProps) {
             title: item.title,
             description: item.description,
             coverImage: item.coverImage,
+            rating: item.rating,
             provider: item.provider,
+            reason: item.reason,
+            confidence: item.confidence,
           }))}
         />
       ))}
