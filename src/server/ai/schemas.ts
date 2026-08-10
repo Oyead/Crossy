@@ -6,7 +6,7 @@ export const mediaSearchResultSchema = z.object({
   releaseDate: z.string().optional(),
   coverImage: z.string().url().optional(),
   rating: z.number().min(0).max(10).optional(),
-  provider: z.enum(['tmdb', 'spotify', 'igdb', 'googleBooks']),
+  provider: z.enum(['tmdb', 'itunes', 'rawg', 'openLibrary']),
   type: z.enum(['movie', 'tv', 'music', 'book', 'game']),
 });
 
@@ -15,8 +15,7 @@ export const mediaSearchResultsSchema = z.array(mediaSearchResultSchema);
 export const mediaRecommendationSchema = z.object({
   recommendations: z.array(
     z.object({
-      mediaId: z.string(),
-      provider: z.enum(['tmdb', 'spotify', 'igdb', 'googleBooks']),
+      index: z.number().int().min(0),
       reason: z.string(),
       confidence: z.number().min(0).max(1),
     })
