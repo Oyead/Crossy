@@ -1,7 +1,7 @@
 export interface MediaSearchProvider {
   search(query: string): Promise<MediaResult[]>;
 
-  getDetails(id: string): Promise<MediaResult | null>;
+  getDetails(id: string, type?: string): Promise<MediaResult | null>;
 }
 
 export interface MediaResult {
