@@ -90,7 +90,7 @@ export default function HomePage() {
             We&apos;ll discover brilliant matches scattered across different mediums automatically.
           </p>
 
-          <div className="w-full max-w-xl pl-2">
+          <div className="w-full pl-2">
             <SearchBar />
           </div>
         </div>
