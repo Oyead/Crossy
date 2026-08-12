@@ -4,37 +4,91 @@
 
 @layer base {
   :root {
-    --background: 21 16 11;
-    --foreground: 243 234 217;
-    --card: 32 24 17;
-    --card-foreground: 243 234 217;
-    --popover: 32 24 17;
-    --popover-foreground: 243 234 217;
-    --primary: 160 106 59;
-    --primary-foreground: 253 248 240;
-    --secondary: 85 58 34;
-    --secondary-foreground: 243 234 217;
-    --muted: 42 32 23;
-    --muted-foreground: 162 144 124;
-    --accent: 230 162 60;
-    --accent-foreground: 26 18 10;
-    --destructive: 201 79 61;
-    --destructive-foreground: 253 248 240;
-    --border: 58 43 29;
-    --input: 58 43 29;
-    --ring: 160 106 59;
-    --radius: 0.625rem;
+    --background: 44 40 92%; /* Cream light palette #FAF6EE */
+    --foreground: 20 20 15%; /* Deep editorial charcoal */
+    --card: 0 0% 100%;
+    --card-foreground: 20 20 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 20 20 15%;
+    --primary: 235 75% 55%; /* Rich Cobalt Blue from 32.jpg */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 42 90% 60%; /* Warm Golden Yellow from 32.jpg & 10.jpg */
+    --secondary-foreground: 20 20 15%;
+    --muted: 30 20% 93%;
+    --muted-foreground: 25 10% 40%;
+    --accent: 14 90% 55%; /* Vibrant Orange from 10.jpg */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 20 20 15%; /* Solid charcoal strokes */
+    --input: 20 20 15%;
+    --ring: 235 75% 55%;
+    --radius: 1.25rem;
   }
 
   * {
-    @apply border-border;
+    @apply border-foreground/90;
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    background-color: #FAF6EE;
+    @apply text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    background-image: linear-gradient(135deg, #3b82f6 0%, #ec4899 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
-  ::selection {
-    @apply bg-accent text-accent-foreground;
+  /* Structural widgets style from 32.jpg / 42.jpg */
+  .retro-card {
+    background: #ffffff;
+    border: 1.5px solid #1a1a15;
+    box-shadow: 4px 4px 0px #1a1a15;
   }
+
+  .retro-shadow-sm {
+    box-shadow: 3px 3px 0px #1a1a15;
+  }
+
+  .retro-shadow-md {
+    box-shadow: 6px 6px 0px #1a1a15;
+  }
+
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
 }
