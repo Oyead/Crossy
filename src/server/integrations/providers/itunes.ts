@@ -22,7 +22,7 @@ export class ItunesProvider implements MediaSearchProvider {
 
       return data.results.map((item: any) => this.mapResult(item)).filter(Boolean);
     } catch (error) {
-      return [];
+      throw error;
     }
   }
 
