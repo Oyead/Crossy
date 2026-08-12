@@ -1,6 +1,6 @@
 import { redis } from '../../lib/redis';
 import { MediaSearchProvider, MediaResult } from '../integrations/MediaSearchProvider';
-import { normalizeQuery, PROVIDER_CACHE_TTL } from '../../lib/cache';
+import { deserialize, normalizeQuery, PROVIDER_CACHE_TTL } from '../../lib/cache';
 
 const FAILURE_THRESHOLD = 2; // N failures before tripping open
 const WINDOW_SECONDS = 30 * 60; // keep the breaker open for 30 minutes
@@ -33,7 +33,7 @@ async function readCircuitAndCache(
       .get<number>(cbKey(name))
       .get<string>(providerCacheKey(name, query))
       .exec();
-    return [failures ?? null, cached ? (JSON.parse(cached) as MediaResult[]) : null];
+    return [failures ?? null, deserialize<MediaResult[]>(cached)];
   } catch (error) {
     return [null, null];
   }

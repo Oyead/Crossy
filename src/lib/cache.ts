@@ -9,7 +9,7 @@ export function normalizeQuery(query: string): string {
 
 // Upstash Redis auto-deserializes valid JSON on GET, so values can arrive as
 // either a raw string or an already-parsed object. Handle both.
-function deserialize<T>(value: any): T | null {
+export function deserialize<T>(value: any): T | null {
   if (value == null) return null;
   if (typeof value === 'string') {
     try {
