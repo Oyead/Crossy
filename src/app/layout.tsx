@@ -4,7 +4,7 @@ import { Providers } from "./providers";
 import Navbar from "../components/layout/Navbar";
 
 export const metadata: Metadata = {
-  title: "Crossy — Find your next favorite in any medium",
+  title: "Crossy - Find your next favorite in any medium",
   description: "Search movies, shows, music, games, and books across every medium with AI-powered recommendations.",
 };
 
