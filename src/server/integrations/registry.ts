@@ -40,6 +40,11 @@ class ProviderRegistry {
     return Array.from(this.providers.values());
   }
 
+  getAllWithNames(): Array<{ name: string; provider: MediaSearchProvider }> {
+    if (!this.initialized) this.initialize();
+    return Array.from(this.providers.entries()).map(([name, provider]) => ({ name, provider }));
+  }
+
   has(name: string): boolean {
     if (!this.initialized) this.initialize();
     return this.providers.has(name.toLowerCase());
