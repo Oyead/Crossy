@@ -20,21 +20,21 @@ export default function SearchBar() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full max-w-xl gap-2 rounded-xl border border-border bg-card p-1.5 shadow-soft focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30"
+      className="bg-white border-2 border-foreground p-2 rounded-2xl retro-shadow-md flex w-full items-center gap-2 focus-within:ring-2 focus-within:ring-[#4F46E5] focus-within:ring-offset-2 transition-all"
     >
-      <Search className="ml-2 h-5 w-5 self-center text-muted-foreground" />
+      <Search className="ml-2 h-5 w-5 shrink-0 text-foreground/70" />
       <input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Try 'inception', 'cozy games', 'jazz', a book title..."
-        className="flex-1 bg-transparent px-2 py-2 text-base outline-none placeholder:text-muted-foreground"
+        placeholder="Try 'inception', 'cozy games', 'jazz' and more"
+        className="flex-1 bg-transparent px-2 py-2 text-base text-foreground outline-none placeholder:text-muted-foreground font-medium"
         disabled={pending}
       />
       <button
         type="submit"
         disabled={pending || !query.trim()}
-        className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground transition-colors hover:bg-primary hover:text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex shrink-0 items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-bold text-white bg-[#1a1a15] border border-transparent transition-all hover:bg-foreground/80 active:scale-98 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Search"}
       </button>
