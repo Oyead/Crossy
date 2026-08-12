@@ -17,7 +17,7 @@ export class TmdbProvider implements MediaSearchProvider {
 
       return data.results.map((item: any) => this.mapToMediaResult(item));
     } catch (error) {
-      return [];
+      throw error;
     }
   }
 
