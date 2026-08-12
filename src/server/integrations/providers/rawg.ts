@@ -20,7 +20,7 @@ export class RawgProvider implements MediaSearchProvider {
 
       return data.results.map((game: any) => this.mapGameToMediaResult(game));
     } catch (error) {
-      return [];
+      throw error;
     }
   }
 
