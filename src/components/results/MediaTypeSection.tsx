@@ -1,3 +1,5 @@
+"use client";
+
 import MediaCard from "./MediaCard";
 
 interface MediaTypeSectionProps {
@@ -21,12 +23,9 @@ export default function MediaTypeSection({ type, title, media }: MediaTypeSectio
   }
 
   return (
-    <section className="mb-10">
-      <h2 className="mb-4 flex items-center gap-3 text-xl font-bold tracking-tight">
-        <span className="h-5 w-1 rounded-full bg-accent" />
-        {title}
-      </h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <section className="mb-12 last:mb-0">
+      {/* Grid Layout Container */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {media.map((item) => (
           <MediaCard
             key={`${item.provider}-${item.id}`}
