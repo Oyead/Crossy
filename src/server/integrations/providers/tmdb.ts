@@ -25,8 +25,6 @@ export class TmdbProvider implements MediaSearchProvider {
     if (!TMDB_API_KEY) return null;
 
     try {
-      // TMDB ids collide across namespaces, so when the media type is known
-      // (movie vs tv) fetch from the correct endpoint directly.
       if (type === 'tv') {
         const tvResponse = await fetchWithTimeout(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}`);
         if (!tvResponse.ok) return null;
