@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
-import { Menu, X, Sparkles, Layers } from "lucide-react";
+import { Menu, X, Sparkles} from "lucide-react";
+import logo from "@/app/Untitled - August 13, 2026 at 20.57.37.png";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -11,29 +13,31 @@ export default function Navbar() {
     { name: "Discover", href: "#" },
     { name: "Media Catalog", href: "#" },
     { name: "My Library", href: "#" },
+    { name: "Login", href: "#" },
   ];
 
   return (
     <nav className="top-0 z-50 px-6 py-4 bg-[#FAF6EE]">
       <div className="mx-auto max-w-7xl flex items-center justify-between border-2 border-foreground bg-white px-6 py-3 rounded-2xl retro-shadow-sm relative">
         
-        {/* Decorative corner target handles inspired by 32.jpg */}
         <span className="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
         <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
         <span className="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
         <span className="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
 
-        {/* Logo / Brand Wrapper */}
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-foreground bg-[#4F46E5] text-white shadow-[2px_2px_0px_#1a1a15] group-hover:translate-x-0.5 group-hover:translate-y-0.5 group-hover:shadow-[0px_0px_0px_#1a1a15] transition-all">
-            <Layers className="h-4 w-4" />
-          </div>
-          <span className="font-black text-xl tracking-tight text-foreground uppercase">
+          <Image
+            src={logo}
+            alt="Crossy Logo"
+            width={36}
+            height={36}
+            className="h-9 w-9 object-cover"
+          />
+          <span className="text-xl font-black leading-none tracking-tight text-foreground uppercase">
             Crossy
           </span>
         </Link>
 
-        {/* Desktop Navigation Links (Inline Minimalist List) */}
         <div className="hidden md:flex items-center gap-6">
           {navLinks.map((link) => (
             <Link
@@ -46,7 +50,6 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* Right Action Callout Button (Styled like the prominent badges in 42.jpg / 32.jpg) */}
         <div className="hidden md:flex items-center">
           <Link
             href="#"
@@ -57,7 +60,6 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* Mobile Hamburger Trigger */}
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="md:hidden flex items-center justify-center p-2 rounded-xl border border-foreground bg-white text-foreground retro-shadow-sm active:scale-95 transition-all"
@@ -66,11 +68,9 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Drawer (Applying the 10.jpg / 42.jpg structural color grids vibe) */}
       {isOpen && (
         <div className="md:hidden mt-3 border-2 border-foreground bg-white rounded-2xl p-4 retro-shadow-md flex flex-col gap-3 animate-fade-up">
           {navLinks.map((link, idx) => {
-            // Distribute matching candy background colors across mobile items on hover
             const dynamicBgs = ["hover:bg-[#D2E9F9]", "hover:bg-[#FAD3A2]", "hover:bg-[#E8C5C8]"];
             return (
               <Link
