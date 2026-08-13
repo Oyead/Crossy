@@ -1,4 +1,5 @@
 import SearchBar from "../components/search/SearchBar";
+import MediaPhrase from "../components/hero/MediaPhrase";
 import {
   Clapperboard,
   Music,
@@ -10,36 +11,31 @@ const FEATURES = [
   {
     icon: Clapperboard,
     label: "Movies & TV",
-    bgClass: "bg-[#D2E9F9]", // Soft Blue from 42.jpg / 10.jpg
+    bgClass: "bg-[#D2E9F9]",
   },
   {
     icon: Music,
     label: "Music",
-    bgClass: "bg-[#FAD3A2]", // Pastel Amber Orange from 42.jpg
+    bgClass: "bg-[#FAD3A2]",
   },
   {
     icon: Gamepad2,
     label: "Games",
-    bgClass: "bg-[#E8C5C8]", // Soft Rose Pink from 42.jpg
+    bgClass: "bg-[#E8C5C8]",
   },
   {
     icon: BookOpen,
     label: "Books",
-    bgClass: "bg-[#FFEAA7]", // Yellow accent from 32.jpg
+    bgClass: "bg-[#FFEAA7]",
   },
 ];
 
 const MEDIA_TYPES = [
-  // Movies & TV
   "Inception", "The Dark Knight", "Interstellar", "Parasite",
   "Spirited Away", "The Matrix", "Breaking Bad", "Stranger Things",
-  // Music
   "Tame Impala", "Kendrick Lamar", "Radiohead", "Frank Ocean",
-  // Games
   "Elden Ring", "Stardew Valley", "The Legend of Zelda", "Hades",
-  // Books
   "Dune", "1984", "The Hobbit",
-  // Genres & vibes
   "Sci-fi", "Cozy", "Synthwave", "Cyberpunk", "Noir", "Fantasy",
   "Lo-fi", "True crime", "Ambient", "Retro",
 ];
@@ -48,7 +44,6 @@ export default function HomePage() {
   return (
     <section className="relative overflow-hidden min-h-screen px-6 py-12 lg:py-20">
       
-      {/* Editorial Decorative Star Badges (Inspired by 32.jpg & 42.jpg) */}
       <div className="absolute top-12 left-12 text-[#1a1a15] opacity-20 hidden md:block select-none pointer-events-none">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0L14.8 9.2L24 12L14.8 14.8L12 24L9.2 14.8L0 12L9.2 9.2Z"/>
@@ -62,12 +57,9 @@ export default function HomePage() {
 
       <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center pt-8 pb-16">
         
-        {/* Left Side: Editorial Layout Content */}
         <div className="lg:col-span-7 flex flex-col justify-center text-left relative">
           
-          {/* Target Box Border Styling wrapper inspired by 32.jpg */}
           <div className="relative border border-foreground/40 p-6 md:p-8 rounded-xl bg-white/40 backdrop-blur-sm mb-8">
-            {/* Corner Target Handles */}
             <span className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-[#FFEAA7] border border-foreground" />
             <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-[#FFEAA7] border border-foreground" />
             <span className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-[#FFEAA7] border border-foreground" />
@@ -79,14 +71,12 @@ export default function HomePage() {
             
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-foreground leading-[1.1]">
               Find your next favorite, <br />
-              <span className="bg-[#4F46E5] text-white px-3 py-1 inline-block retro-shadow-sm rotate-[-1deg] mt-2">
-                in any medium
-              </span>
+              <MediaPhrase />
             </h1>
           </div>
 
           <p className="max-w-xl text-lg text-muted-foreground font-medium mb-8 pl-2">
-            Enter a movie, show, album, game, or book — or just describe a mood. 
+            Enter a movie, show, album, game, or book, or just describe a mood.
             We&apos;ll discover brilliant matches scattered across different mediums automatically.
           </p>
 
@@ -95,11 +85,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Right Side: Showcase Media Graphic Blocks Mix (Inspired by 42.jpg Arches & 10.jpg Rounded Color grids) */}
         <div className="lg:col-span-5 flex justify-center items-center relative">
           <div className="relative border border-foreground p-4 bg-white retro-shadow-md rounded-2xl w-full max-w-md">
             
-            {/* Large Arch display element from 42.jpg */}
             <div className="w-full h-80 bg-[#D2E9F9] border-2 border-foreground rounded-t-full overflow-hidden relative group">
               <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent z-10" />
               <img 
@@ -112,7 +100,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Micro Multi-color Mosaic Grid Row footer inspired by 10.jpg */}
             <div className="grid grid-cols-4 gap-2.5 mt-4">
               <div className="h-14 rounded-xl border border-foreground bg-[#FFEAA7] retro-shadow-sm" />
               <div className="h-14 rounded-xl border border-foreground bg-[#E8C5C8] retro-shadow-sm" />
@@ -124,7 +111,6 @@ export default function HomePage() {
 
       </div>
 
-      {/* Feature Navigation Bottom Section: Horizontal Flat Cards mimicking 32.jpg/42.jpg footers */}
       <div className="mx-auto w-full max-w-7xl pt-8 pb-12">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {FEATURES.map((feature, index) => (
@@ -139,7 +125,6 @@ export default function HomePage() {
                 </span>
                 <div>
                   <h3 className="font-bold text-sm text-foreground">{feature.label}</h3>
-                  <p className="text-xs text-foreground/70 mt-0.5">{feature.hint}</p>
                 </div>
               </div>
             </div>
@@ -147,7 +132,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Marquee Ticker */}
       <div className="mask-fade-x animate-marquee flex w-max gap-4 py-6 border-y-2 border-foreground bg-white mt-8 font-bold text-sm text-foreground uppercase tracking-wider">
         {[...MEDIA_TYPES, ...MEDIA_TYPES].map((type, index) => (
           <span
