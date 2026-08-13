@@ -10,7 +10,7 @@ export default function LoginPage() {
       <h1 className="text-3xl font-bold tracking-tight">Welcome to Crossy</h1>
       <p className="mt-3 max-w-md text-muted-foreground">
         Sign-in is coming soon. For now, search across movies, shows, music,
-        games, and books — no account needed.
+        games, and books, no account needed.
       </p>
       <Link
         href="/"
