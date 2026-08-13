@@ -1,7 +1,8 @@
 import { providerRegistry } from '../integrations/registry';
 import { getGeminiClient } from '../ai/client';
 import { buildMediaRecommendationPrompt } from '../ai/prompts';
-import { generateCandidatesWithAi, hydrateCandidates, dedupeMediaResults } from './candidateSearch';
+import { generateCandidatesWithAi, hydrateCandidates, dedupeMediaResults, filterResultsWithImages } from './candidateSearch';
+import type { MediaCandidate } from '../ai/schemas';
 import { guardedProviderSearch } from './circuitBreaker';
 import { Timings, timed } from '../../lib/trace';
 import {
@@ -18,7 +19,6 @@ function cacheKey(query: string): string {
   return `search:${normalizeQuery(query)}`;
 }
 
-// Cheap ordering so the grid is useful before AI ranking arrives.
 function cheapSort(results: any[]): any[] {
   return [...results].sort((a, b) => {
     const ar = typeof a.rating === 'number' ? a.rating : -1;
@@ -28,7 +28,6 @@ function cheapSort(results: any[]): any[] {
   });
 }
 
-// Trim long blurbs to ~1-2 sentences before sending to Gemini.
 function compactDescription(text: any): string {
   const t = String(text ?? '').trim().replace(/\s+/g, ' ');
   if (t.length <= 180) return t;
@@ -37,21 +36,16 @@ function compactDescription(text: any): string {
   return lastEnd > 60 ? cut.slice(0, lastEnd + 1) : cut;
 }
 
-// Fast path: provider keyword search + dedupe only. Rendered immediately.
 export async function processMediaQueryFast(query: string, timings?: Timings): Promise<any[]> {
   const fullKey = cacheKey(query);
   const fastKey = `fast:${fullKey}`;
 
-  // If the enhanced result is already cached, serve it straight away.
-  // Both cache reads go out in a single Redis round trip.
   const [cachedFull, cachedFast] = await timed(timings, 'cache:checks', () =>
     getCachedJsonMany([fullKey, fastKey])
   );
   if (cachedFull) return cachedFull;
   if (cachedFast) return cachedFast;
 
-  // Each provider is guarded (circuit breaker + per-provider raw cache), so a
-  // dead provider like RAWG is skipped rather than costing a full timeout.
   const results = await timed(timings, 'providers', async () => {
     const batches = await Promise.all(
       providerRegistry.getAllWithNames().map(({ name, provider }) =>
@@ -61,17 +55,42 @@ export async function processMediaQueryFast(query: string, timings?: Timings): P
     return batches.flat();
   });
 
-  const deduped = dedupeMediaResults(results);
+  const deduped = filterResultsWithImages(dedupeMediaResults(results));
   const sorted = cheapSort(deduped);
 
   await timed(timings, 'cache:write', () => setCachedJson(fastKey, sorted, PROVIDER_CACHE_TTL));
   return sorted;
 }
 
-// Enhanced path: AI vibe candidates + ranking with reasons/confidence.
-export async function processMediaQueryEnhanced(
+export async function mergeMediaQueryResults(
   query: string,
   baseResults: any[],
+  timings?: Timings,
+  candidatesPromise?: Promise<MediaCandidate[]>
+): Promise<{ results: any[]; fromCache: boolean }> {
+  const fullKey = cacheKey(query);
+
+  const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(fullKey));
+  if (cachedFull) return { results: cachedFull, fromCache: true };
+
+  const aiResults = await timed(timings, 'gemini:candidates', () =>
+    generateAndHydrateCandidates(query, candidatesPromise, baseResults)
+  );
+
+  const merged = filterResultsWithImages(dedupeMediaResults([...aiResults, ...baseResults]));
+
+  if (merged.length > 0) {
+    await timed(timings, 'cache:write', () =>
+      setCachedJson(`fast:${fullKey}`, merged, PROVIDER_CACHE_TTL)
+    );
+  }
+
+  return { results: merged, fromCache: false };
+}
+
+export async function rankMergedResults(
+  query: string,
+  merged: any[],
   timings?: Timings
 ): Promise<any[]> {
   const fullKey = cacheKey(query);
@@ -79,35 +98,47 @@ export async function processMediaQueryEnhanced(
   const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(fullKey));
   if (cachedFull) return cachedFull;
 
-  const aiResults = await timed(timings, 'gemini:candidates', () => generateAndHydrateCandidates(query));
-
-  // AI-hydrated candidates first so vibe matches always get ranked,
-  // even when keyword search floods the pool with literal hits.
-  const merged = dedupeMediaResults([...aiResults, ...baseResults]);
-
-  if (merged.length === 0) {
-    return [];
-  }
-
   const results = await timed(timings, 'gemini:rank', () => rankWithAi(query, merged));
 
-  // Write the full result and drop the stale fast cache in one round trip.
   await timed(timings, 'cache:write', () =>
     setCachedJsonAndDelete(fullKey, results, CACHE_TTL, `fast:${fullKey}`)
   );
   return results;
 }
 
-export async function processMediaQuery(query: string, timings?: Timings): Promise<any[]> {
-  const fast = await processMediaQueryFast(query, timings);
-  return processMediaQueryEnhanced(query, fast, timings);
+export async function processMediaQueryEnhanced(
+  query: string,
+  baseResults: any[],
+  timings?: Timings,
+  candidatesPromise?: Promise<MediaCandidate[]>
+): Promise<any[]> {
+  const { results: merged, fromCache } = await mergeMediaQueryResults(query, baseResults, timings, candidatesPromise);
+  if (merged.length === 0) return [];
+  if (fromCache) return merged;
+  return rankMergedResults(query, merged, timings);
 }
 
-async function generateAndHydrateCandidates(query: string): Promise<any[]> {
+export async function processMediaQuery(query: string, timings?: Timings): Promise<any[]> {
+  const candidatesPromise = generateCandidatesWithAi(query);
+  const fast = await processMediaQueryFast(query, timings);
+  return processMediaQueryEnhanced(query, fast, timings, candidatesPromise);
+}
+
+async function generateAndHydrateCandidates(
+  query: string,
+  candidatesPromise?: Promise<MediaCandidate[]>,
+  baseResults?: any[]
+): Promise<any[]> {
   try {
-    const candidates = await generateCandidatesWithAi(query);
-    if (candidates.length === 0) return [];
-    return await hydrateCandidates(candidates);
+    const candidates = candidatesPromise ?? generateCandidatesWithAi(query);
+    const startGen = performance.now();
+    const list = await candidates;
+    console.log(`[search] candidates:gen ${Math.round(performance.now() - startGen)}ms for "${query}"`);
+    if (!list || list.length === 0) return [];
+    const startHydrate = performance.now();
+    const hydrated = await hydrateCandidates(list, baseResults);
+    console.log(`[search] candidates:hydrate ${Math.round(performance.now() - startHydrate)}ms (${list.length} candidates -> ${hydrated.length})`);
+    return hydrated;
   } catch (error) {
     return [];
   }
@@ -115,7 +146,6 @@ async function generateAndHydrateCandidates(query: string): Promise<any[]> {
 
 async function rankWithAi(query: string, allResults: any[]): Promise<any[]> {
   const limitedResults = allResults.slice(0, 20);
-  // Send only the fields Gemini needs — raw API payloads are huge and slow it down.
   const compact = limitedResults.map((r, index) => ({
     index,
     title: r.title,
@@ -133,26 +163,8 @@ async function rankWithAi(query: string, allResults: any[]): Promise<any[]> {
     const genAI = getGeminiClient();
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
-    // Try streaming first for potentially lower latency
-    let aiResponse = '';
-    if (typeof model.generateContentStream === 'function') {
-      try {
-        const stream = model.generateContentStream(recommendationPrompt);
-        for await (const chunk of stream) {
-          const chunkText = chunk.text();
-          aiResponse += chunkText;
-        }
-      } catch (streamError) {
-        // Fall back to non-streaming if streaming fails
-        console.warn('[search] Gemini streaming failed, falling back to non-streaming:', streamError);
-        const result = await model.generateContent(recommendationPrompt);
-        aiResponse = result.response.text();
-      }
-    } else {
-      // Fall back to non-streaming if streaming not supported
-      const result = await model.generateContent(recommendationPrompt);
-      aiResponse = result.response.text();
-    }
+    const result = await model.generateContent(recommendationPrompt, { timeout: 15000 });
+    const aiResponse = result.response.text();
 
     let recommendations: any[] = [];
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
@@ -169,8 +181,6 @@ async function rankWithAi(query: string, allResults: any[]): Promise<any[]> {
       return limitedResults;
     }
 
-    // Map each AI recommendation back to its already-fetched search result
-    // using the list index, avoiding a second API call per item.
     const enriched = recommendations
       .map((rec: any) => {
         const item = limitedResults[rec.index];
