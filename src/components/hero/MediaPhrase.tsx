@@ -23,7 +23,7 @@ export default function MediaPhrase() {
     <span
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      className="relative bg-[#4F46E5] text-white px-3 py-1 inline-block retro-shadow-sm rotate-[-1deg] mt-2"
+      className="relative bg-[#4F46E5] text-white px-3 py-1 inline-block retro-shadow-sm rotate-[-1deg] mt-2 cursor-pointer"
     >
       <span className="invisible" aria-hidden="true">
         in any medium
