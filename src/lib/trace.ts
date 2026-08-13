@@ -3,8 +3,6 @@ export interface Timings {
   toHeader(): string;
 }
 
-// Wraps a phase, logging a console.time span and recording it for a
-// Server-Timing response header.
 export function createTimings(): Timings {
   const spans: Record<string, number> = {};
 
@@ -28,7 +26,6 @@ export function createTimings(): Timings {
   };
 }
 
-// Calls through to timings.time when timings are provided, otherwise just runs.
 export function timed<T>(
   timings: Timings | undefined,
   name: string,
