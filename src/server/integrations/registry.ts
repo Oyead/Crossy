@@ -59,15 +59,12 @@ class ProviderRegistry {
 
 export const providerRegistry = new ProviderRegistry();
 
-// Auto-initialize on import
 providerRegistry.initialize();
 
-// Helper function to register a provider (for dynamic registration)
 export function registerProvider(name: string, provider: MediaSearchProvider) {
   providerRegistry.register(name, provider);
 }
 
-// Map a media type (movie, tv, music, book, game) to its provider
 export function providerForMediaType(mediaType: string): MediaSearchProvider | undefined {
   return providerRegistry.getProviderForMediaType(mediaType);
 }
