@@ -2,8 +2,8 @@ import { redis } from '../../lib/redis';
 import { MediaSearchProvider, MediaResult } from '../integrations/MediaSearchProvider';
 import { deserialize, normalizeQuery, PROVIDER_CACHE_TTL } from '../../lib/cache';
 
-const FAILURE_THRESHOLD = 2; // N failures before tripping open
-const WINDOW_SECONDS = 30 * 60; // keep the breaker open for 30 minutes
+const FAILURE_THRESHOLD = 2;
+const WINDOW_SECONDS = 30 * 60;
 
 function cbKey(name: string): string {
   return `cb:${name.toLowerCase()}`;
@@ -18,11 +18,9 @@ export async function recordFailure(name: string): Promise<void> {
     await redis.incr(cbKey(name));
     await redis.expire(cbKey(name), WINDOW_SECONDS);
   } catch (error) {
-    // Ignore circuit breaker write failures
   }
 }
 
-// Circuit state + provider cache read in a single round trip.
 async function readCircuitAndCache(
   name: string,
   query: string
@@ -39,7 +37,6 @@ async function readCircuitAndCache(
   }
 }
 
-// Breaker reset + provider cache write in a single round trip.
 async function writeSuccessAndCache(
   name: string,
   query: string,
@@ -52,13 +49,9 @@ async function writeSuccessAndCache(
       .set(providerCacheKey(name, query), JSON.stringify(results), { ex: PROVIDER_CACHE_TTL })
       .exec();
   } catch (error) {
-    // Ignore circuit breaker write failures
   }
 }
 
-// Skips the provider entirely when its circuit is open, serves its raw
-// response from the per-provider cache when warm, and otherwise calls it —
-// recording failures so a dead provider stops blocking future searches.
 export async function guardedProviderSearch(
   name: string,
   provider: MediaSearchProvider,
