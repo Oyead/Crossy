@@ -9,11 +9,6 @@ export const ratelimit = new Ratelimit({
   prefix: 'crossy:ratelimit',
 });
 
-/**
- * 
- * @param identifier - 
- * @returns 
- */
 export async function checkRateLimit(
   identifier: string,
   limit: number = 100,
@@ -35,12 +30,6 @@ export async function checkRateLimit(
   };
 }
 
-/**
- * 
- * @param identifier
- * @param limit 
- * @param window
- */
 export async function rateLimitMiddleware(
   identifier: string,
   limit: number = 100,
