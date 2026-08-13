@@ -14,7 +14,6 @@ interface MediaCardProps {
   confidence?: number;
 }
 
-// Color palettes for the dynamic tags matching your home dashboard accents
 const TAG_BG_MAP: Record<string, string> = {
   movie: "bg-[#D2E9F9]",
   tv: "bg-[#D2E9F9]",
@@ -39,7 +38,6 @@ export default function MediaCard({
     <div className="group relative flex flex-col justify-between bg-white border-2 border-[#1a1a15] rounded-xl overflow-hidden shadow-[4px_4px_0px_#1a1a15] hover:shadow-[7px_7px_0px_#1a1a15] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200">
       
       <div>
-        {/* Cover Artwork Bounding Box */}
         <div className="w-full aspect-[16/10] bg-[#FAF6EE] border-b-2 border-[#1a1a15] overflow-hidden relative">
           {coverImage ? (
             <img
@@ -57,7 +55,6 @@ export default function MediaCard({
             />
           )}
 
-          {/* Floating Rating Tag */}
           {rating && (
             <div className="absolute top-3 right-3 flex items-center gap-1 bg-[#FFEAA7] border border-[#1a1a15] px-2 py-0.5 rounded-md shadow-[2px_2px_0px_#1a1a15] text-xs font-black text-[#1a1a15]">
               <Star className="h-3 w-3 fill-[#1a1a15] stroke-[#1a1a15]" />
@@ -66,7 +63,6 @@ export default function MediaCard({
           )}
         </div>
 
-        {/* Info Content Section (Completely White & Legible) */}
         <div className="p-4 sm:p-5">
           <h3 className="font-black text-xl text-[#1a1a15] tracking-tight leading-tight uppercase group-hover:text-[#4F46E5] transition-colors line-clamp-1">
             {title}
@@ -78,7 +74,6 @@ export default function MediaCard({
             </p>
           )}
 
-          {/* AI Reasoning Panel */}
           {reason && (
             <div className="mt-3 bg-[#FAF6EE] border border-[#1a1a15]/10 p-2.5 rounded-lg text-[11px] font-medium text-[#1a1a15]/80 italic leading-normal">
               &ldquo;{reason}&rdquo;
@@ -87,7 +82,6 @@ export default function MediaCard({
         </div>
       </div>
 
-      {/* Card Metadata Footer */}
       <div className="px-4 sm:p-5 pt-0 pb-4 flex items-center justify-between gap-2 mt-auto">
         <div className="flex items-center gap-1.5">
           <span className={`${typeBg} border border-[#1a1a15] text-[#1a1a15] text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-[1px_1px_0px_#1a1a15]`}>
