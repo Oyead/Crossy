@@ -24,7 +24,6 @@ export default function MediaTypeSection({ type, title, media }: MediaTypeSectio
 
   return (
     <section className="mb-12 last:mb-0">
-      {/* Grid Layout Container */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {media.map((item) => (
           <MediaCard
