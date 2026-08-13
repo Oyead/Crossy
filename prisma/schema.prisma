@@ -11,26 +11,26 @@ datasource db {
 
 model Media {
   id              String           @id @default(cuid())
-  externalId      String           // e.g., "550", "elden-ring"
-  mediaType       String           // "movie" | "game" | "book" | "song"
-  sourceApi       String           // "tmdb" | "rawg" | "google_books" | "spotify"
+  externalId      String
+  mediaType       String
+  sourceApi       String
   title           String
   posterUrl       String?
-  metadata        Json             // Full raw response, genres, release year, etc.
+  metadata        Json
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   recommendations Recommendation[]
   favorites       Favorite[]
 
-  @@unique([mediaType, externalId]) // Guarantees no duplicate movies/games in your DB
+  @@unique([mediaType, externalId])
   @@index([mediaType])
 }
 
 model SearchQuery {
   id              String           @id @default(cuid())
   rawInput        String
-  mode            String           // "title" | "vibe"
+  mode            String
   resolvedType    String?
   embedding       Unsupported("vector(1536)")?
   createdAt       DateTime         @default(now())
@@ -44,7 +44,6 @@ model Recommendation {
   queryId     String
   query       SearchQuery @relation(fields: [queryId], references: [id], onDelete: Cascade)
   
-  // Link to the centralized Media table
   mediaId     String
   media       Media       @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
@@ -70,7 +69,6 @@ model Favorite {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Users now favorite the Media item directly, not a temporary recommendation
   mediaId   String
   media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
