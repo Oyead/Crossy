@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { Menu, X, Sparkles} from "lucide-react";
-import logo from "@/app/Untitled - August 13, 2026 at 20.57.37.png";
+import logo from "@/app/logo.png";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
