@@ -4,23 +4,23 @@
 
 @layer base {
   :root {
-    --background: 44 40 92%; /* Cream light palette #FAF6EE */
-    --foreground: 20 20 15%; /* Deep editorial charcoal */
+    --background: 44 40 92%;
+    --foreground: 20 20 15%;
     --card: 0 0% 100%;
     --card-foreground: 20 20 15%;
     --popover: 0 0% 100%;
     --popover-foreground: 20 20 15%;
-    --primary: 235 75% 55%; /* Rich Cobalt Blue from 32.jpg */
+    --primary: 235 75% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 42 90% 60%; /* Warm Golden Yellow from 32.jpg & 10.jpg */
+    --secondary: 42 90% 60%;
     --secondary-foreground: 20 20 15%;
     --muted: 30 20% 93%;
     --muted-foreground: 25 10% 40%;
-    --accent: 14 90% 55%; /* Vibrant Orange from 10.jpg */
+    --accent: 14 90% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 20 20 15%; /* Solid charcoal strokes */
+    --border: 20 20 15%;
     --input: 20 20 15%;
     --ring: 235 75% 55%;
     --radius: 1.25rem;
@@ -44,7 +44,6 @@
     color: transparent;
   }
 
-  /* Structural widgets style from 32.jpg / 42.jpg */
   .retro-card {
     background: #ffffff;
     border: 1.5px solid #1a1a15;
