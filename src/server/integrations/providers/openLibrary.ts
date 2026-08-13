@@ -18,9 +18,7 @@ export class OpenLibraryProvider implements MediaSearchProvider {
   async search(query: string): Promise<MediaResult[]> {
     try {
       const url = `${OPEN_LIBRARY_URL}/search.json?q=${encodeURIComponent(query)}&limit=10&fields=key,title,author_name,first_publish_year,cover_i,subtitle`;
-      // Open Library is slow on cold connections; give it headroom so its
-      // legitimately-slow first hit doesn't trip the circuit breaker.
-      const response = await fetchWithTimeout(url, {}, 6000);
+      const response = await fetchWithTimeout(url, {}, 3000);
       if (!response.ok) {
         throw new Error(`Open Library search failed: ${response.status}`);
       }
