@@ -47,12 +47,17 @@ Instructions:
 1. If the candidate list above is empty, respond with {"recommendations": []} and stop.
 2. Otherwise, select the strongest matches, normally 5 to 10, but return fewer if fewer than 5 are genuinely good matches. Never pad the list with weak matches just to reach 5.
 3. You may recommend across different media types than what the user mentioned, e.g. someone who likes a tense sci-fi movie may also enjoy a similarly toned game or book, as long as the connection is real and explainable.
-4. Reference items ONLY by the exact "Index N" number shown above. Never invent an index that isn't in the list, and never list the same index twice.
-5. For each recommendation, provide:
+4. **Diversification Guidance**: To provide a richer discovery experience, prioritize recommendations that show meaningful breadth while maintaining relevance:
+   - Avoid recommending multiple items from the same franchise or direct spin-offs unless each offers distinct value
+   - When possible, vary across media types, creators, decades, and cultural contexts
+   - A soundtrack album from a film should only be recommended if it has significant standalone artistic merit beyond its association with the film
+   - Seek recommendations that expand the user's horizons while still connecting to their stated preferences
+5. Reference items ONLY by the exact "Index N" number shown above. Never invent an index that isn't in the list, and never list the same index twice.
+6. For each recommendation, provide:
    - "index" (integer): the exact index number from the list above
    - "reason" (string, 1-2 sentences): a specific, concrete reason tied to the user's stated preferences (shared genre, tone, theme, creator, or mood), avoid generic statements like "this is a good match"
    - "confidence" (number from 0 to 1): how confident you are this matches the user's taste
-6. Order the recommendations array from highest to lowest confidence.
+7. Order the recommendations array from highest to lowest confidence.
 
 Respond with ONLY a valid JSON object of the form {"recommendations": [...]}, no markdown code fences, no commentary, no text before or after the object.`;
 }
@@ -96,5 +101,5 @@ Instructions:
 2. If the match is weak or only tangential, say so honestly rather than overstating the connection.
 3. Do not reveal major plot twists or endings.
 
-Respond with plain text only: just the explanation itself, no JSON, no markdown formatting, no surrounding quotation marks, no preamble like "Here's why:".`;
+Respond with plain text only: just the explanation itself, no JSON, no markdown formatting, no surrounding quotation marks, no preamble like "Here's why:`;
 }
