@@ -1,19 +1,29 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 
-const redis = Redis.fromEnv();
+let redis: Redis | null = null;
+let ratelimit: Ratelimit | null = null;
 
-export const ratelimit = new Ratelimit({
-  redis,
-  limiter: Ratelimit.slidingWindow(100, '15 m'),
-  prefix: 'crossy:ratelimit',
-});
+try {
+  redis = Redis.fromEnv();
+  ratelimit = new Ratelimit({
+    redis,
+    limiter: Ratelimit.slidingWindow(100, '15 m'),
+    prefix: 'crossy:ratelimit',
+  });
+} catch (error) {
+  console.warn('Upstash Redis not configured. Rate limiting is disabled.', error);
+}
 
 export async function checkRateLimit(
   identifier: string,
   limit: number = 100,
   window: `${number} ${'ms' | 's' | 'm' | 'h' | 'd'}` | `${number}${'ms' | 's' | 'm' | 'h' | 'd'}` = '15 m'
 ) {
+  if (!redis) {
+    return { success: true, limit, remaining: limit, reset: Date.now() + 15 * 60 * 1000 };
+  }
+
   const customRatelimit = new Ratelimit({
     redis,
     limiter: Ratelimit.slidingWindow(limit, window),
