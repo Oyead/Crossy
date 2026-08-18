@@ -12,17 +12,18 @@ interface MediaCardProps {
   provider: string;
   reason?: string;
   confidence?: number;
+  favorited: boolean;
+  onToggleFavorite: (mediaData: {
+    id: string;
+    title: string;
+    posterUrl?: string;
+    mediaType: string;
+    sourceApi: string;
+  }) => Promise<void>;
 }
 
-const TAG_BG_MAP: Record<string, string> = {
-  movie: "bg-[#D2E9F9]",
-  tv: "bg-[#D2E9F9]",
-  music: "bg-[#FAD3A2]",
-  book: "bg-[#E8C5C8]",
-  game: "bg-[#FFEAA7]",
-};
-
 export default function MediaCard({
+  id,
   title,
   description,
   coverImage,
@@ -31,74 +32,106 @@ export default function MediaCard({
   provider,
   reason,
   confidence,
+  favorited,
+  onToggleFavorite
 }: MediaCardProps) {
-  const typeBg = TAG_BG_MAP[type] || "bg-white";
+  const handleFavoriteClick = async () => {
+    if (!onToggleFavorite) return;
+
+    try {
+      await onToggleFavorite({
+        id,
+        title,
+        posterUrl: coverImage,
+        mediaType: type,
+        sourceApi: provider
+      });
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      // Error handling is done in the parent component's optimistic update
+    }
+  };
 
   return (
-    <div className="group relative flex flex-col justify-between bg-white border-2 border-[#1a1a15] rounded-xl overflow-hidden shadow-[4px_4px_0px_#1a1a15] hover:shadow-[7px_7px_0px_#1a1a15] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all duration-200">
-      
-      <div>
-        <div className="w-full aspect-[16/10] bg-[#FAF6EE] border-b-2 border-[#1a1a15] overflow-hidden relative">
-          {coverImage ? (
-            <img
-              src={coverImage}
-              alt={title}
-              className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-              loading="lazy"
-            />
-          ) : (
-            <img
-              src="https://placehold.co/600x400/FAF6EE/1a1a15"
-              alt={title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          )}
-
-          {rating && (
-            <div className="absolute top-3 right-3 flex items-center gap-1 bg-[#FFEAA7] border border-[#1a1a15] px-2 py-0.5 rounded-md shadow-[2px_2px_0px_#1a1a15] text-xs font-black text-[#1a1a15]">
-              <Star className="h-3 w-3 fill-[#1a1a15] stroke-[#1a1a15]" />
-              {rating.toFixed(1)}
-            </div>
-          )}
-        </div>
-
-        <div className="p-4 sm:p-5">
-          <h3 className="font-black text-xl text-[#1a1a15] tracking-tight leading-tight uppercase group-hover:text-[#4F46E5] transition-colors line-clamp-1">
-            {title}
-          </h3>
-
-          {description && (
-            <p className="mt-2 text-xs font-medium text-[#1a1a15]/70 line-clamp-2 leading-relaxed">
-              {description}
-            </p>
-          )}
-
-          {reason && (
-            <div className="mt-3 bg-[#FAF6EE] border border-[#1a1a15]/10 p-2.5 rounded-lg text-[11px] font-medium text-[#1a1a15]/80 italic leading-normal">
-              &ldquo;{reason}&rdquo;
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="px-4 sm:p-5 pt-0 pb-4 flex items-center justify-between gap-2 mt-auto">
-        <div className="flex items-center gap-1.5">
-          <span className={`${typeBg} border border-[#1a1a15] text-[#1a1a15] text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md shadow-[1px_1px_0px_#1a1a15]`}>
-            {type}
-          </span>
-          <span className="bg-white border border-[#1a1a15]/30 text-[#1a1a15]/60 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md">
-            {provider}
-          </span>
-        </div>
-
-        {confidence && (
-          <span className="text-[10px] font-black tracking-widest text-[#1a1a15]/40 uppercase">
-            {Math.round(confidence * 100)}% Match
-          </span>
+    <div className="relative group">
+      {/* Media Image */}
+      <div className="aspect-w-4 aspect-h-5 w-full overflow-hidden rounded-lg bg-gray-200">
+        {coverImage ? (
+          <img
+            src={coverImage}
+            alt={`${title} cover`}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-gray-300">
+            <div className="text-gray-500">{type.toUpperCase()}</div>
+          </div>
         )}
       </div>
 
+      {/* Content */}
+      <div className="mt-4">
+        {/* Title */}
+        <h3 className="text-lg font-semibold text-[#1a1a15] line-clamp-2">
+          {title}
+        </h3>
+
+        {/* Rating */}
+        {rating !== undefined && (
+          <div className="flex items-center mt-1">
+            <div className="flex space-x-1">
+              {[...Array(5)].map((_, i) => (
+                <svg
+                  key={i}
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={i < rating ? "text-[#FBBF24]" : "text-[#E2E8F0]"}
+                >
+                  <polygon points="12 2 15.09 8.26 22 9.27 13.53 14.14 15.69 20.09 12 16.77 8.31 20.09 10.47 14.14 2 9.27 8.91 8.26" strokeWidth="1.5" stroke="currentColor" />
+                </svg>
+              ))}
+            </div>
+            <span className="ml-2 text-sm text-[#6B7280]">({rating.toFixed(1)})</span>
+          </div>
+        )}
+
+        {/* Description */}
+        {description && (
+          <p className="mt-2 line-clamp-2 text-sm text-[#6B7280]">
+            {description}
+          </p>
+        )}
+
+        {/* Metadata */}
+        <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#9CA3AF]">
+          <span>#{provider}</span>
+          {reason && <span>{reason}</span>}
+          {confidence !== undefined && (
+            <span>{(confidence * 100).toFixed(0)}% match</span>
+          )}
+        </div>
+
+        {/* Favorite Button */}
+        <div className="mt-4 flex items-center justify-end">
+          <button
+            onClick={handleFavoriteClick}
+            className={`flex items-center gap-2 p-2 rounded-full transition-all duration-200 ${
+              favorited
+                ? "bg-[#FBBF24]/20 text-[#FBBF24] hover:bg-[#FBBF24]/30"
+                : "bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB] hover:text-[#374151]"
+            }`}
+            aria-label={favorited ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Star className={`h-4 w-4 transition-transform duration-200 ${
+              favorited ? "transform scale-110" : ""
+            }`} />
+            <span className="text-sm font-medium">{favorited ? "Unfavorite" : "Favorite"}</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
