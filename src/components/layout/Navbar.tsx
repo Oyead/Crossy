@@ -3,18 +3,20 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { Menu, X, Sparkles} from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { Menu, X, Sparkles, LogOut } from "lucide-react";
 import logo from "@/app/logo.png";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const { data: session } = useSession();
+  const isLoggedIn = !!session;
 
   const navLinks = [
     { name: "Discover", href: "#" },
     { name: "Media Catalog", href: "#" },
     { name: "My Library", href: "#" },
-    { name: "Login", href: "#" },
-  ];
+    ];
 
   return (
     <nav className="top-0 z-50 px-6 py-4 bg-[#FAF6EE]">
@@ -48,6 +50,27 @@ export default function Navbar() {
               {link.name}
             </Link>
           ))}
+          {isLoggedIn ? (
+            <div className="flex items-center gap-3">
+              <span className="font-bold text-sm text-foreground px-3 py-1.5 rounded-lg bg-[#D2E9F9] border border-foreground">
+                {session.user?.email?.split("@")[0] ?? "User"}
+              </span>
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="flex items-center gap-1.5 font-bold text-sm text-foreground/70 hover:text-foreground px-3 py-1.5 rounded-lg border border-transparent hover:border-foreground hover:bg-[#E8C5C8] hover:retro-shadow-sm transition-all"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="font-bold text-sm text-foreground/80 hover:text-foreground px-3 py-1.5 rounded-lg border border-transparent hover:border-foreground hover:bg-[#D2E9F9] hover:retro-shadow-sm transition-all"
+            >
+              Login
+            </Link>
+          )}
         </div>
 
         <div className="hidden md:flex items-center">
@@ -83,9 +106,31 @@ export default function Navbar() {
               </Link>
             );
           })}
-          
+
           <hr className="border-t border-foreground/30 my-1" />
-          
+
+          {isLoggedIn ? (
+            <>
+              <div className="w-full font-bold text-sm text-foreground bg-[#D2E9F9] border-2 border-foreground p-3 rounded-xl text-center">
+                ✦ {session.user?.email?.split("@")[0] ?? "User"}
+              </div>
+              <button
+                onClick={() => { setIsOpen(false); signOut({ callbackUrl: "/" }); }}
+                className="w-full font-bold text-base text-foreground border-2 border-foreground p-3 rounded-xl transition-all hover:bg-[#E8C5C8] hover:retro-shadow-sm text-left"
+              >
+                ✦ Sign out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              onClick={() => setIsOpen(false)}
+              className="w-full font-bold text-base text-foreground border-2 border-transparent p-3 rounded-xl transition-all hover:bg-[#D2E9F9] hover:border-foreground hover:retro-shadow-sm text-left"
+            >
+              ✦ Login
+            </Link>
+          )}
+
           <Link
             href="#"
             onClick={() => setIsOpen(false)}
