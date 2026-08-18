@@ -66,7 +66,7 @@ export default async function Page({ params }: { params: { queryId: string } }) 
               <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-[#1a1a15] leading-[1.15]">
                 Cross-Medium Results <br />
                 <span className="text-sm font-bold tracking-widest uppercase block text-[#1a1a15]/50 mt-3 mb-1">
-                  Query Parameter Match:
+                  Results for:
                 </span>
                 <span className="inline-block bg-[#FFEAA7] text-[#1a1a15] px-4 py-1 rounded-xl border-2 border-[#1a1a15] shadow-[4px_4px_0px_#1a1a15] text-2xl sm:text-4xl mt-1 font-black">
                   &ldquo;{query}&rdquo;
