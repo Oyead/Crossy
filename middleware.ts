@@ -16,10 +16,10 @@ export async function middleware(request: NextRequest) {
     try {
         await rateLimitMiddleware(ip, 100, '15 m');
     } catch (error) {
-        if (error.message === 'Rate limit exceeded') {
+        if (error instanceof Error && error.message === 'Rate limit exceeded') {
             return new NextResponse('Too Many Requests', { status: 429 });
         }
-        throw error;
+        console.error('Rate limit middleware error:', error);
     }
 
     const requestHeaders = new Headers(request.headers);
