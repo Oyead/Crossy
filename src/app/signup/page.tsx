@@ -31,25 +31,23 @@ export default function SignupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
       if (!res.ok) {
+        const data = await res.json();
         setError(data.error || 'Failed to create account');
         return;
       }
       // Step 2: Sign in with the new account
-      const result = await signIn('credentials', {
-        redirect: false,
+      await signIn('credentials', {
+        redirect: true,
+        callbackUrl: '/',
         email,
         password,
         credentialType: 'email-password',
       });
-      if (result?.error) {
-        setError('Account created but sign-in failed. Please try logging in.');
-        return;
-      }
-      window.location.href = '/';
+      // If successful, signIn will redirect to callbackUrl.
+      // If there's an error, it will throw.
     } catch (err: any) {
-      setError(err?.message || 'An error occurred');
+      setError('Account created but sign-in failed. Please try logging in.');
     } finally {
       setIsLoading(false);
     }

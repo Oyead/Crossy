@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { users } from "@/lib/mockUsers";
+import bcrypt from 'bcrypt';
+import prisma from "@/server/db/prisma";
 
 export async function POST(req: Request) {
   try {
@@ -9,19 +10,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
+    const lowerEmail = email.toLowerCase();
+
     // Check if user already exists
-    const existing = Array.from(users.values()).find((u) => u.email === email);
+    const existing = await prisma.user.findUnique({
+      where: { email: lowerEmail },
+    });
+
     if (existing) {
       return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
     }
 
-    // Create new user
-    const id = String(users.size + 1);
-    const user = { id, name: email.split("@")[0], email, credentials: [] };
-    users.set(id, user);
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    return NextResponse.json({ ok: true, user: { id, name: user.name, email } }, { status: 201 });
-  } catch {
+    // Create new user
+    const user = await prisma.user.create({
+      data: {
+        email: lowerEmail,
+        name: email.split("@")[0], // Use part before @ as name
+        password: hashedPassword,
+      },
+    });
+
+    return NextResponse.json({ ok: true, user: { id: user.id, name: user.name, email: user.email } }, { status: 201 });
+  } catch (error) {
+    console.error("Signup error:", error);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }
