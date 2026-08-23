@@ -3,8 +3,7 @@ import prisma from "@/server/db/prisma"
 export async function logSearchQueryAsync(
   rawInput: string,
   mode: string,
-  resolvedType?: string,
-  userId: string | null = null
+  resolvedType?: string
 ) {
   // Fire and forget - we don't want to block the response
   // We'll catch and log any errors but not propagate them
@@ -13,8 +12,7 @@ export async function logSearchQueryAsync(
       data: {
         rawInput,
         mode,
-        resolvedType: resolvedType ?? undefined,
-        userId: userId ?? undefined
+        resolvedType: resolvedType ?? undefined
       }
     })
     .catch((error) => {
