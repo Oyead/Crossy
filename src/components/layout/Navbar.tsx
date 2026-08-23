@@ -2,30 +2,64 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { Menu, X, Sparkles, LogOut } from "lucide-react";
+import { Menu, X, Sparkles, LogOut, KeyRound, ChevronDown } from "lucide-react";
 import logo from "@/app/logo.png";
+
+const CORNER_DOT_POSITIONS = [
+  "-top-1.5 -left-1.5",
+  "-top-1.5 -right-1.5",
+  "-bottom-1.5 -left-1.5",
+  "-bottom-1.5 -right-1.5",
+];
+
+const DESKTOP_LINK_CLASS =
+  "font-bold text-sm text-foreground/80 hover:text-foreground px-3 py-1.5 rounded-lg border border-transparent hover:border-foreground hover:bg-[#D2E9F9] hover:retro-shadow-sm transition-all";
+
+const MOBILE_ITEM_BASE_CLASS =
+  "w-full font-bold text-base text-foreground border-2 p-3 rounded-xl transition-all text-left";
+
+const MOBILE_DYNAMIC_BGS = [
+  "hover:bg-[#D2E9F9]",
+  "hover:bg-[#FAD3A2]",
+  "hover:bg-[#E8C5C8]",
+];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const { data: session } = useSession();
   const isLoggedIn = !!session;
 
+  const username = session?.user?.email?.split("@")[0] ?? "User";
+
+  const handleSignOut = () => {
+    setIsOpen(false);
+    signOut({ callbackUrl: "/" });
+  };
+
+  const SignOutButton = ({ className, children }: { className: string; children: ReactNode }) => (
+    <button type="button" onClick={handleSignOut} className={className}>
+      {children}
+    </button>
+  );
+
   const navLinks = [
-    { name: "Discover", href: "#" },
+    { name: "Discover", href: "/" },
     { name: "Media Catalog", href: "#" },
-    { name: "My Library", href: "#" },
+    { name: "My Library", href: "/favorites" },
     ];
 
   return (
     <nav className="top-0 z-50 px-6 py-4 bg-[#FAF6EE]">
       <div className="mx-auto max-w-7xl flex items-center justify-between border-2 border-foreground bg-white px-6 py-3 rounded-2xl retro-shadow-sm relative">
         
-        <span className="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
-        <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
-        <span className="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
-        <span className="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
+        {CORNER_DOT_POSITIONS.map((position) => (
+          <span
+            key={position}
+            className={`absolute ${position} w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground`}
+          />
+        ))}
 
         <Link href="/" className="flex items-center gap-2 group">
           <Image
@@ -45,29 +79,33 @@ export default function Navbar() {
             <Link
               key={link.name}
               href={link.href}
-              className="font-bold text-sm text-foreground/80 hover:text-foreground px-3 py-1.5 rounded-lg border border-transparent hover:border-foreground hover:bg-[#D2E9F9] hover:retro-shadow-sm transition-all"
+              className={DESKTOP_LINK_CLASS}
             >
               {link.name}
             </Link>
           ))}
           {isLoggedIn ? (
-            <div className="flex items-center gap-3">
-              <span className="font-bold text-sm text-foreground px-3 py-1.5 rounded-lg bg-[#D2E9F9] border border-foreground">
-                {session.user?.email?.split("@")[0] ?? "User"}
+            <div className="relative group flex items-center">
+              <span className="flex items-center gap-1.5 font-bold text-sm text-foreground/80 hover:text-foreground px-3 py-1.5 rounded-lg border border-transparent group-hover:border-foreground group-hover:bg-[#D2E9F9] group-hover:retro-shadow-sm transition-all cursor-pointer">
+                {username}
+                <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200 group-hover:rotate-180" />
               </span>
-              <button
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="flex items-center gap-1.5 font-bold text-sm text-foreground/70 hover:text-foreground px-3 py-1.5 rounded-lg border border-transparent hover:border-foreground hover:bg-[#E8C5C8] hover:retro-shadow-sm transition-all"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                Sign out
-              </button>
+              <div className="absolute right-0 top-full pt-2 invisible opacity-0 translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:translate-y-0 focus-within:visible focus-within:opacity-100 focus-within:translate-y-0 transition-all duration-150 flex flex-col gap-1">
+                <Link
+                  href="/forgot-password"
+                  className="w-full min-w-[10rem] flex items-center gap-1.5 font-bold text-sm text-foreground px-3 py-1.5 rounded-lg border border-transparent bg-white hover:border-foreground hover:bg-[#D2E9F9] hover:retro-shadow-sm transition-all"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  Reset password
+                </Link>
+                <SignOutButton className="w-full min-w-[10rem] flex items-center gap-1.5 font-bold text-sm text-foreground px-3 py-1.5 rounded-lg border border-transparent bg-white hover:border-foreground hover:bg-[#E8C5C8] hover:retro-shadow-sm transition-all">
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sign out
+                </SignOutButton>
+              </div>
             </div>
           ) : (
-            <Link
-              href="/login"
-              className="font-bold text-sm text-foreground/80 hover:text-foreground px-3 py-1.5 rounded-lg border border-transparent hover:border-foreground hover:bg-[#D2E9F9] hover:retro-shadow-sm transition-all"
-            >
+            <Link href="/login" className={DESKTOP_LINK_CLASS}>
               Login
             </Link>
           )}
@@ -93,39 +131,40 @@ export default function Navbar() {
 
       {isOpen && (
         <div className="md:hidden mt-3 border-2 border-foreground bg-white rounded-2xl p-4 retro-shadow-md flex flex-col gap-3 animate-fade-up">
-          {navLinks.map((link, idx) => {
-            const dynamicBgs = ["hover:bg-[#D2E9F9]", "hover:bg-[#FAD3A2]", "hover:bg-[#E8C5C8]"];
-            return (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setIsOpen(false)}
-                className={`w-full font-bold text-base text-foreground border-2 border-transparent p-3 rounded-xl transition-all ${dynamicBgs[idx % dynamicBgs.length]} hover:border-foreground hover:retro-shadow-sm`}
-              >
-                ✦ {link.name}
-              </Link>
-            );
-          })}
+          {navLinks.map((link, idx) => (
+            <Link
+              key={link.name}
+              href={link.href}
+              onClick={() => setIsOpen(false)}
+              className={`${MOBILE_ITEM_BASE_CLASS} border-transparent ${MOBILE_DYNAMIC_BGS[idx % MOBILE_DYNAMIC_BGS.length]} hover:border-foreground hover:retro-shadow-sm`}
+            >
+              ✦ {link.name}
+            </Link>
+          ))}
 
           <hr className="border-t border-foreground/30 my-1" />
 
           {isLoggedIn ? (
             <>
-              <div className="w-full font-bold text-sm text-foreground bg-[#D2E9F9] border-2 border-foreground p-3 rounded-xl text-center">
-                ✦ {session.user?.email?.split("@")[0] ?? "User"}
+              <div className={`${MOBILE_ITEM_BASE_CLASS} bg-[#D2E9F9] border-foreground`}>
+                ✦ {username}
               </div>
-              <button
-                onClick={() => { setIsOpen(false); signOut({ callbackUrl: "/" }); }}
-                className="w-full font-bold text-base text-foreground border-2 border-foreground p-3 rounded-xl transition-all hover:bg-[#E8C5C8] hover:retro-shadow-sm text-left"
+              <Link
+                href="/forgot-password"
+                onClick={() => setIsOpen(false)}
+                className={`${MOBILE_ITEM_BASE_CLASS} border-foreground hover:bg-[#D2E9F9] hover:retro-shadow-sm`}
               >
+                ✦ Reset password
+              </Link>
+              <SignOutButton className={`${MOBILE_ITEM_BASE_CLASS} border-foreground hover:bg-[#E8C5C8] hover:retro-shadow-sm`}>
                 ✦ Sign out
-              </button>
+              </SignOutButton>
             </>
           ) : (
             <Link
               href="/login"
               onClick={() => setIsOpen(false)}
-              className="w-full font-bold text-base text-foreground border-2 border-transparent p-3 rounded-xl transition-all hover:bg-[#D2E9F9] hover:border-foreground hover:retro-shadow-sm text-left"
+              className={`${MOBILE_ITEM_BASE_CLASS} border-transparent hover:bg-[#D2E9F9] hover:border-foreground hover:retro-shadow-sm`}
             >
               ✦ Login
             </Link>
