@@ -23,12 +23,12 @@ export default function MediaPhrase() {
     <span
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      className="relative bg-[#4F46E5] text-white px-3 py-1 inline-block retro-shadow-sm rotate-[-1deg] mt-2 cursor-pointer"
+      className="relative max-w-full bg-[#4F46E5] text-white px-3 py-1 inline-block retro-shadow-sm rotate-[-1deg] mt-2 cursor-pointer text-[1.7rem] min-[420px]:text-[length:inherit]"
     >
       <span className="invisible" aria-hidden="true">
         in any medium
       </span>
-      <span className="absolute inset-y-0 left-0 right-0 px-3 flex items-center whitespace-nowrap">
+      <span className="absolute inset-y-0 left-0 right-0 px-0.5 flex items-center whitespace-nowrap">
         {hovering ? WORDS[index] : "in any medium"}
       </span>
     </span>
