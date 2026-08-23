@@ -1,6 +1,6 @@
 import { providerRegistry } from '../integrations/registry';
 import { getGeminiClient } from '../ai/client';
-import { buildMediaRecommendationPrompt } from '../ai/prompts';
+import { buildMediaRecommendationPrompt, UserTasteContext } from '../ai/prompts';
 import { generateCandidatesWithAi, hydrateCandidates, dedupeMediaResults, filterResultsWithImages } from './candidateSearch';
 import type { MediaCandidate } from '../ai/schemas';
 import { guardedProviderSearch } from './circuitBreaker';
@@ -14,9 +14,45 @@ import {
   CACHE_TTL,
   PROVIDER_CACHE_TTL,
 } from '../../lib/cache';
+import { recallSimilarQueryMedia, persistSearchMemoryAsync } from '../context/searchMemory';
+import type { UserSearchSignal } from '../context/userSignal';
 
 function cacheKey(query: string): string {
   return `search:${normalizeQuery(query)}`;
+}
+
+const CONFIDENCE_BANDS: Array<[number, number]> = [
+  [0.8, Infinity],
+  [0.6, 0.8],
+  [0.4, 0.6],
+  [0, 0.4],
+];
+
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
+export function diversifyRanked<T extends { confidence?: number }>(results: T[]): T[] {
+  if (!results.some((r) => typeof r.confidence === 'number')) return results;
+
+  const buckets: T[][] = CONFIDENCE_BANDS.map(() => []);
+  const tail: T[] = [];
+
+  for (const item of results) {
+    const c = typeof item.confidence === 'number' ? item.confidence : null;
+    if (c === null) {
+      tail.push(item);
+      continue;
+    }
+    const idx = CONFIDENCE_BANDS.findIndex(([lo, hi]) => c >= lo && c < hi);
+    buckets[idx === -1 ? CONFIDENCE_BANDS.length - 1 : idx].push(item);
+  }
+
+  return [...buckets.flatMap((band) => shuffleInPlace([...band])), ...tail];
 }
 
 function cheapSort(results: any[]): any[] {
@@ -67,42 +103,63 @@ export async function mergeMediaQueryResults(
   baseResults: any[],
   timings?: Timings,
   candidatesPromise?: Promise<MediaCandidate[]>
-): Promise<{ results: any[]; fromCache: boolean }> {
-  const fullKey = cacheKey(query);
-
-  const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(fullKey));
-  if (cachedFull) return { results: cachedFull, fromCache: true };
-
+): Promise<{ results: any[] }> {
   const aiResults = await timed(timings, 'gemini:candidates', () =>
     generateAndHydrateCandidates(query, candidatesPromise, baseResults)
   );
 
-  const merged = filterResultsWithImages(dedupeMediaResults([...aiResults, ...baseResults]));
+  const memoryResults = await timed(timings, 'memory:recall', () =>
+    recallSimilarQueryMedia(query)
+  );
+
+  const merged = filterResultsWithImages(
+    dedupeMediaResults([...aiResults, ...memoryResults, ...baseResults])
+  );
 
   if (merged.length > 0) {
     await timed(timings, 'cache:write', () =>
-      setCachedJson(`fast:${fullKey}`, merged, PROVIDER_CACHE_TTL)
+      setCachedJson(`fast:${cacheKey(query)}`, merged, PROVIDER_CACHE_TTL)
     );
   }
 
-  return { results: merged, fromCache: false };
+  return { results: merged };
 }
 
 export async function rankMergedResults(
   query: string,
   merged: any[],
-  timings?: Timings
+  timings?: Timings,
+  personalization?: UserSearchSignal
 ): Promise<any[]> {
-  const fullKey = cacheKey(query);
+  const resultKey = personalization
+    ? `search:u${personalization.userId}:${normalizeQuery(query)}`
+    : cacheKey(query);
 
-  const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(fullKey));
-  if (cachedFull) return cachedFull;
+  const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(resultKey));
+  if (cachedFull) return diversifyRanked(cachedFull);
 
-  const results = await timed(timings, 'gemini:rank', () => rankWithAi(query, merged));
+  const results = await timed(timings, 'gemini:rank', () =>
+    rankWithAi(query, merged, personalization)
+  );
 
   await timed(timings, 'cache:write', () =>
-    setCachedJsonAndDelete(fullKey, results, CACHE_TTL, `fast:${fullKey}`)
+    setCachedJsonAndDelete(resultKey, results, CACHE_TTL, `fast:${cacheKey(query)}`)
   );
+
+  persistSearchMemoryAsync(
+    query,
+    results.map((r) => ({
+      id: r.id,
+      title: r.title,
+      type: r.type,
+      provider: r.provider,
+      posterUrl: r.coverImage,
+      reason: r.reason,
+      confidence: r.confidence,
+      userId: personalization?.userId ?? null,
+    }))
+  );
+
   return results;
 }
 
@@ -110,18 +167,29 @@ export async function processMediaQueryEnhanced(
   query: string,
   baseResults: any[],
   timings?: Timings,
-  candidatesPromise?: Promise<MediaCandidate[]>
+  candidatesPromise?: Promise<MediaCandidate[]>,
+  personalization?: UserSearchSignal
 ): Promise<any[]> {
-  const { results: merged, fromCache } = await mergeMediaQueryResults(query, baseResults, timings, candidatesPromise);
+  const resultKey = personalization
+    ? `search:u${personalization.userId}:${normalizeQuery(query)}`
+    : cacheKey(query);
+
+  const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(resultKey));
+  if (cachedFull) return diversifyRanked(cachedFull);
+
+  const { results: merged } = await mergeMediaQueryResults(query, baseResults, timings, candidatesPromise);
   if (merged.length === 0) return [];
-  if (fromCache) return merged;
-  return rankMergedResults(query, merged, timings);
+  return rankMergedResults(query, merged, timings, personalization);
 }
 
-export async function processMediaQuery(query: string, timings?: Timings): Promise<any[]> {
+export async function processMediaQuery(
+  query: string,
+  timings?: Timings,
+  personalization?: UserSearchSignal
+): Promise<any[]> {
   const candidatesPromise = generateCandidatesWithAi(query);
   const fast = await processMediaQueryFast(query, timings);
-  return processMediaQueryEnhanced(query, fast, timings, candidatesPromise);
+  return processMediaQueryEnhanced(query, fast, timings, candidatesPromise, personalization);
 }
 
 async function generateAndHydrateCandidates(
@@ -144,7 +212,11 @@ async function generateAndHydrateCandidates(
   }
 }
 
-async function rankWithAi(query: string, allResults: any[]): Promise<any[]> {
+async function rankWithAi(
+  query: string,
+  allResults: any[],
+  personalization?: UserSearchSignal
+): Promise<any[]> {
   const limitedResults = allResults.slice(0, 20);
   const compact = limitedResults.map((r, index) => ({
     index,
@@ -157,7 +229,11 @@ async function rankWithAi(query: string, allResults: any[]): Promise<any[]> {
     creators: Array.isArray(r.creators) ? r.creators.slice(0, 3) : [],
     description: compactDescription(r.description),
   }));
-  const recommendationPrompt = buildMediaRecommendationPrompt(query, compact);
+
+  const tasteContext: UserTasteContext | undefined = personalization
+    ? { favorites: personalization.favorites, recentSearches: personalization.recentSearches }
+    : undefined;
+  const recommendationPrompt = buildMediaRecommendationPrompt(query, compact, tasteContext);
 
   try {
     const genAI = getGeminiClient();
