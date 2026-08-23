@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import ResultsGrid from "@/components/results/ResultsGrid";
+import { getCurrentUserId } from "@/lib/auth";
+import { getUserSearchSignal, type UserSearchSignal } from "@/server/context/userSignal";
 import {
   processMediaQueryFast,
   mergeMediaQueryResults,
@@ -33,6 +35,16 @@ export default async function Page({ params }: { params: { queryId: string } }) 
   const candidatesPromise = generateCandidatesWithAi(query);
   const initial = await processMediaQueryFast(query, timings);
   console.log(`[search] "${query}" fast phase: ${timings.toHeader()}`);
+
+  let personalization: UserSearchSignal | undefined;
+  try {
+    const userId = await getCurrentUserId();
+    if (userId) {
+      personalization = await getUserSearchSignal(userId, query);
+    }
+  } catch (error) {
+    console.error("[search] Failed to load user signal:", error);
+  }
 
   try {
     headers().set("Server-Timing", timings.toHeader());
@@ -89,11 +101,16 @@ export default async function Page({ params }: { params: { queryId: string } }) 
               initial.length === 0 ? (
                 <EmptyState />
               ) : (
-                <ResultsGrid results={initial} />
+                <ResultsGrid results={initial} query={query} />
               )
             }
           >
-            <MergedResults query={query} initial={initial} candidatesPromise={candidatesPromise} />
+            <MergedResults
+              query={query}
+              initial={initial}
+              candidatesPromise={candidatesPromise}
+              personalization={personalization}
+            />
           </Suspense>
         </div>
 
@@ -106,13 +123,15 @@ async function MergedResults({
   query,
   initial,
   candidatesPromise,
+  personalization,
 }: {
   query: string;
   initial: Array<any>;
   candidatesPromise: ReturnType<typeof generateCandidatesWithAi>;
+  personalization?: UserSearchSignal;
 }) {
   const timings = createTimings();
-  const { results: merged, fromCache } = await mergeMediaQueryResults(
+  const { results: merged } = await mergeMediaQueryResults(
     query,
     initial,
     timings,
@@ -124,13 +143,9 @@ async function MergedResults({
     return <EmptyState />;
   }
 
-  if (fromCache) {
-    return <ResultsGrid results={merged} />;
-  }
-
   return (
-    <Suspense fallback={<ResultsGrid results={merged} />}>
-      <RankedResults query={query} merged={merged} />
+    <Suspense fallback={<ResultsGrid results={merged} query={query} />}>
+      <RankedResults query={query} merged={merged} personalization={personalization} />
     </Suspense>
   );
 }
@@ -138,13 +153,15 @@ async function MergedResults({
 async function RankedResults({
   query,
   merged,
+  personalization,
 }: {
   query: string;
   merged: Array<any>;
+  personalization?: UserSearchSignal;
 }) {
   const timings = createTimings();
-  const ranked = await rankMergedResults(query, merged, timings);
+  const ranked = await rankMergedResults(query, merged, timings, personalization);
   console.log(`[search] "${query}" ranked phase: ${timings.toHeader()}`);
 
-  return <ResultsGrid results={ranked} />;
+  return <ResultsGrid results={ranked} query={query} />;
 }
