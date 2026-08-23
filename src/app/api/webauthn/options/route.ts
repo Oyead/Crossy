@@ -17,7 +17,6 @@ export async function GET(request: Request) {
 
   try {
     let options;
-    let challenge: Buffer;
 
     if (type === 'registration') {
       // For registration, we need to exclude any existing credentials for this user.
@@ -25,7 +24,7 @@ export async function GET(request: Request) {
       options = await generateRegistrationOptions({
         rpName: 'Crossy',
         rpID: process.env.NEXTAUTH_URL ? new URL(process.env.NEXTAUTH_URL).hostname : 'localhost',
-        userID: isoBase64URL.fromString(email), // Use the email as the user ID for simplicity
+        userID: isoBase64URL.toBuffer(email), // Use the email as the user ID for simplicity
         userName: email.split('@')[0], // Use the part before @ as the username
         excludeCredentials: [], // In a real app, you would fetch the user's credentials and exclude them
       });
@@ -42,8 +41,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
     }
 
-    // Convert the challenge to a base64url string for storage and later retrieval
-    const challengeBase64 = isoBase64URL.fromBuffer(options.challenge);
+    // The challenge is already a base64url string in @simplewebauthn/server v13
+    const challengeBase64 = options.challenge;
     // Store the challenge with an expiration time (e.g., 5 minutes)
     const expires = Date.now() + 5 * 60 * 1000; // 5 minutes from now
     challengeStore.set(challengeBase64, { challenge: options.challenge, expires });
