@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 import { Loader2, Check, Eye, EyeOff } from 'lucide-react';
+import SocialSignInButtons from '@/components/auth/SocialSignInButtons';
 
 const PASSWORD_RULES = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -15,17 +16,26 @@ const PASSWORD_RULES = [
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [codeNotice, setCodeNotice] = useState<string | null>(null);
 
   const handleEmailPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!PASSWORD_RULES.every((r) => r.test(password))) return;
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      // Step 1: Create the account
+      // Step 1: Register the email and send a verification code
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,7 +46,35 @@ export default function SignupPage() {
         setError(data.error || 'Failed to create account');
         return;
       }
-      // Step 2: Sign in with the new account
+      const data = await res.json();
+      if (!data.delivered) {
+        setCodeNotice("Email delivery isn't configured on this server - the code was printed in the server console.");
+      }
+      setAwaitingCode(true);
+    } catch (err: any) {
+      setError(err?.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifying(true);
+    setError(null);
+    try {
+      // Step 2: Verify the code to create the account
+      const res = await fetch('/api/auth/verify-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Verification failed');
+        return;
+      }
+      // Step 3: Sign in with the new account
       await signIn('credentials', {
         redirect: true,
         callbackUrl: '/',
@@ -45,11 +83,30 @@ export default function SignupPage() {
         credentialType: 'email-password',
       });
       // If successful, signIn will redirect to callbackUrl.
-      // If there's an error, it will throw.
     } catch (err: any) {
-      setError('Account created but sign-in failed. Please try logging in.');
+      setError('Account verified but sign-in failed. Please try logging in.');
     } finally {
-      setIsLoading(false);
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setCodeNotice(null);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to resend code');
+        return;
+      }
+      setCodeNotice('A new code has been sent.');
+    } catch {
+      setError('Failed to resend code');
     }
   };
 
@@ -69,6 +126,7 @@ export default function SignupPage() {
           </p>
         </div>
 
+        {!awaitingCode && (
         <div className="relative border-2 border-foreground bg-white p-8 rounded-2xl retro-shadow-md">
           <span className="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
           <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-[#FFEAA7] border border-foreground" />
@@ -146,23 +204,36 @@ export default function SignupPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 border-2 border-foreground rounded bg-[#FAF6EE] text-[#1a1a15] focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 cursor-pointer accent-[#1a1a15]"
-                />
-                <span className="text-sm font-medium text-foreground">Remember me</span>
+            <div>
+              <label htmlFor="confirm-password" className="block text-xs font-black uppercase tracking-widest text-foreground mb-2">
+                Confirm password
               </label>
+              <input
+                id="confirm-password"
+                name="confirm-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="new-password"
+                required
+                className={`appearance-none relative block w-full px-4 py-3 border-2 rounded-xl bg-[#FAF6EE] placeholder:text-muted-foreground text-foreground font-medium text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all ${
+                  confirmPassword && confirmPassword !== password
+                    ? 'border-[#dc2626]'
+                    : 'border-foreground'
+                }`}
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
 
-              <a href="#" className="text-sm font-bold text-foreground hover:text-[#4F46E5] underline underline-offset-4 decoration-foreground/40 hover:decoration-[#4F46E5] transition-colors">
+            <div className="flex justify-end">
+              <a href="/forgot-password" className="text-sm font-bold text-foreground hover:text-[#4F46E5] underline underline-offset-4 decoration-foreground/40 hover:decoration-[#4F46E5] transition-colors">
                 Forgot password?
               </a>
             </div>
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (confirmPassword.length > 0 && confirmPassword !== password)}
               className="relative w-full flex justify-center items-center gap-2 py-3 px-4 text-sm font-bold text-white bg-[#1a1a15] rounded-xl border-2 border-foreground retro-shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_#1a1a15] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0 disabled:hover:retro-shadow-sm"
             >
               {isLoading ? (
@@ -176,40 +247,69 @@ export default function SignupPage() {
             </button>
           </form>
         </div>
+        )}
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex-1 border-t-2 border-foreground/20"></div>
-            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-              Or continue with
-            </span>
-            <div className="flex-1 border-t-2 border-foreground/20"></div>
-          </div>
+        {awaitingCode && (
+          <div className="relative border-2 border-foreground bg-white p-8 rounded-2xl retro-shadow-md">
+            <span className="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-[#D2E9F9] border border-foreground" />
+            <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-[#D2E9F9] border border-foreground" />
+            <span className="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-[#D2E9F9] border border-foreground" />
+            <span className="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-[#D2E9F9] border border-foreground" />
 
-          <div className="grid grid-cols-2 gap-3">
-            <a
-              href="/api/auth/signin/github"
-              className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-foreground rounded-xl bg-white font-bold text-sm text-foreground hover:bg-[#D2E9F9] retro-shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_#1a1a15] transition-all"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75 0 4.25 2.426 7.865 5.813 9.173.425.09.58-.214.58-.477v-1.85c-2.357.51-2.855-1.043-2.855-1.043-.385-.98-.94-1.245-.94-1.245-.77-.526.059-.516.059-.516.853.06 1.302.874 1.302.874.695 1.293 2.002.918 2.49 1.402.024-1.096.09-1.847.14-2.283-1.872-.208-3.84-.936-3.84-4.17 0-.92.33-1.668.87-2.257-.085-.214-.367-1.076.08-2.242 0 0 .71-.229 2.33.866a10.296 10.296 0 012.04-.261c.698-.09 1.446-.136 2.162-.136.716 0 1.464.046 2.162.136 1.62-1.095 2.33-.866 2.33-.866.447 1.166.165 2.028.08 2.242.54.589.87 1.337.87 2.257 0 3.234-1.968 3.962-3.84 4.17.3.26.57.773.57 1.558v2.96c0 .263.155.567.58.477 3.387-1.308 5.813-4.923 5.813-9.173C21.75 6.615 17.385 2.25 12 2.25z" clipRule="evenodd" />
-              </svg>
-              GitHub
-            </a>
-            <a
-              href="/api/auth/signin/google"
-              className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-foreground rounded-xl bg-white font-bold text-sm text-foreground hover:bg-[#E8C5C8] retro-shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_#1a1a15] transition-all"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-              </svg>
-              Google
-            </a>
+            <form className="space-y-5" onSubmit={handleVerifyCode}>
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-black text-foreground">Check your email</h3>
+                <p className="text-sm text-muted-foreground font-medium">
+                  We sent a 6-digit code to{' '}
+                  <span className="font-bold text-foreground">{email}</span>
+                </p>
+              </div>
+
+              <input
+                id="verification-code"
+                name="verification-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                className="appearance-none relative block w-full px-4 py-3 border-2 border-foreground rounded-xl bg-[#FAF6EE] text-center font-black text-2xl tracking-[0.5em] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-[#4F46E5] transition-all"
+              />
+
+              {codeNotice && (
+                <p className="text-xs font-medium text-center text-muted-foreground">{codeNotice}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isVerifying || code.length !== 6}
+                className="relative w-full flex justify-center items-center gap-2 py-3 px-4 text-sm font-bold text-white bg-[#4F46E5] rounded-xl border-2 border-foreground retro-shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_#1a1a15] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+              >
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Verify code'
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResendCode}
+                className="w-full text-sm font-bold text-muted-foreground hover:text-foreground underline underline-offset-4 decoration-foreground/30 transition-colors"
+              >
+                Didn&apos;t get it? Resend code
+              </button>
+            </form>
           </div>
-        </div>
+        )}
+
+        <SocialSignInButtons />
 
         {error && (
           <div className="border-2 border-[#dc2626] bg-[#fef2f2] rounded-xl p-4 text-sm font-medium text-[#dc2626]">
