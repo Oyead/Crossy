@@ -10,6 +10,7 @@ interface MediaCardProps {
   rating?: number;
   type: string;
   provider: string;
+  sourceQuery?: string;
   reason?: string;
   confidence?: number;
   favorited: boolean;
@@ -19,6 +20,7 @@ interface MediaCardProps {
     posterUrl?: string;
     mediaType: string;
     sourceApi: string;
+    sourceQuery?: string;
   }) => Promise<void>;
 }
 
@@ -30,6 +32,7 @@ export default function MediaCard({
   rating,
   type,
   provider,
+  sourceQuery,
   reason,
   confidence,
   favorited,
@@ -55,12 +58,12 @@ export default function MediaCard({
   return (
     <div className="relative group">
       {/* Media Image */}
-      <div className="aspect-w-4 aspect-h-5 w-full overflow-hidden rounded-lg bg-gray-200">
+      <div className="flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-lg bg-gray-200">
         {coverImage ? (
           <img
             src={coverImage}
             alt={`${title} cover`}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="block h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gray-300">
@@ -107,7 +110,11 @@ export default function MediaCard({
 
         {/* Metadata */}
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#9CA3AF]">
-          <span>#{provider}</span>
+          {sourceQuery ? (
+            <span className="truncate max-w-full">from &ldquo;{sourceQuery}&rdquo;</span>
+          ) : (
+            <span>#{provider}</span>
+          )}
           {reason && <span>{reason}</span>}
           {confidence !== undefined && (
             <span>{(confidence * 100).toFixed(0)}% match</span>
