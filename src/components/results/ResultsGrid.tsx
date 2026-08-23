@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { X, Star } from "lucide-react";
 import MediaTypeSection from "./MediaTypeSection";
 import { getUserFavorites, toggleFavorite } from "@/lib/favorites";
 
 interface ResultsGridProps {
+  query?: string;
   results: Array<{
     id: string;
     title: string;
@@ -28,12 +32,24 @@ const TYPE_STYLES: Record<string, { label: string; bg: string; rotation: string 
   game: { label: "Games", bg: "bg:#FFEAA7", rotation: "rotate-[-0.5deg]" },
 };
 
-export default function ResultsGrid({ results }: ResultsGridProps) {
+export default function ResultsGrid({ query, results }: ResultsGridProps) {
   const [favoritedIds, setFavoritedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState<boolean>(true);
+  const [showLoginPrompt, setShowLoginPrompt] = useState<boolean>(false);
+  const { status } = useSession();
 
-  // Load user favorites on mount
   useEffect(() => {
+    if (!showLoginPrompt) return;
+    const timer = setTimeout(() => setShowLoginPrompt(false), 6000);
+    return () => clearTimeout(timer);
+  }, [showLoginPrompt]);
+
+  // Load user favorites once signed in
+  useEffect(() => {
+    if (status !== "authenticated") {
+      return;
+    }
+
     const loadFavorites = async () => {
       setLoading(true);
       try {
@@ -48,7 +64,7 @@ export default function ResultsGrid({ results }: ResultsGridProps) {
     };
 
     loadFavorites();
-  }, []);
+  }, [status]);
 
   const grouped = results.reduce((acc, item) => {
     if (!acc[item.type]) {
@@ -68,7 +84,13 @@ export default function ResultsGrid({ results }: ResultsGridProps) {
   posterUrl?: string;
   mediaType: string;
   sourceApi: string;
+  sourceQuery?: string;
 }) => {
+    if (status !== "authenticated") {
+      setShowLoginPrompt(true);
+      return;
+    }
+
     try {
       // Optimistically update state
       setFavoritedIds(prev => {
@@ -102,6 +124,30 @@ export default function ResultsGrid({ results }: ResultsGridProps) {
 
   return (
     <div className="space-y-16 pb-24">
+      {showLoginPrompt && (
+        <div className="fixed bottom-6 right-6 z-50 w-[calc(100%-3rem)] max-w-md animate-fade-up">
+          <div className="relative flex items-start gap-3 border-2 border-[#1a1a15] bg-[#FFEAA7] rounded-xl px-4 py-3 shadow-[4px_4px_0px_#1a1a15]">
+            <Star className="mt-0.5 h-5 w-5 shrink-0 text-[#1a1a15]" fill="#1a1a15" />
+            <p className="text-sm font-bold text-[#1a1a15]">
+              Log in to save favorites to your library.{" "}
+              <Link
+                href="/login"
+                className="text-[#4F46E5] underline underline-offset-2 hover:text-[#3b34c4]"
+              >
+                Sign in
+              </Link>
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowLoginPrompt(false)}
+              aria-label="Dismiss"
+              className="ml-auto shrink-0 rounded-lg p-1 text-[#1a1a15]/60 hover:bg-[#1a1a15]/10 hover:text-[#1a1a15] transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
       {sortedTypes.map((type) => {
         const style = TYPE_STYLES[type] || { label: type, bg: "bg-white", rotation: "rotate-0" };
 
@@ -134,6 +180,7 @@ export default function ResultsGrid({ results }: ResultsGridProps) {
               <MediaTypeSection
                 type={type}
                 title={style.label}
+                sourceQuery={query}
                 media={grouped[type].map((item) => ({
                   id: item.id,
                   title: item.title,
