@@ -16,12 +16,14 @@ interface MediaTypeSectionProps {
     confidence?: number;
   }>;
   favoritedIds?: Set<string>;
+  sourceQuery?: string;
   onToggleFavorite?: (mediaData: {
     id: string;
     title: string;
     posterUrl?: string;
     mediaType: string;
     sourceApi: string;
+    sourceQuery?: string;
   }) => Promise<void>;
 }
 
@@ -30,6 +32,7 @@ export default function MediaTypeSection({
   title,
   media,
   favoritedIds,
+  sourceQuery,
   onToggleFavorite
 }: MediaTypeSectionProps) {
   if (media.length === 0) {
@@ -54,13 +57,7 @@ export default function MediaTypeSection({
             favorited={favoritedIds?.has(item.id) ?? false}
             onToggleFavorite={async (mediaData) => {
               if (onToggleFavorite) {
-                await onToggleFavorite({
-                  id: mediaData.id,
-                  title: mediaData.title,
-                  posterUrl: mediaData.coverImage, // coverImage is the posterUrl
-                  mediaType: type, // mediaType from the section
-                  sourceApi: mediaData.provider, // provider is the sourceApi
-                });
+                await onToggleFavorite({ ...mediaData, sourceQuery });
               }
             }}
           />
