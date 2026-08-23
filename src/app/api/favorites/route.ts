@@ -28,7 +28,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { externalId, title, posterUrl, mediaType, sourceApi } = body
+    const { externalId, title, posterUrl, mediaType, sourceApi, sourceQuery } = body
 
     if (!externalId || !mediaType || !sourceApi) {
       return NextResponse.json(
@@ -80,7 +80,8 @@ export async function POST(request: Request) {
       const favorite = await prisma.favorite.create({
         data: {
           userId,
-          mediaId: media.id
+          mediaId: media.id,
+          sourceQuery: typeof sourceQuery === "string" && sourceQuery.trim() ? sourceQuery.trim() : null
         }
       })
 
