@@ -85,29 +85,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="lg:col-span-5 flex justify-center items-center relative">
-          <div className="relative border border-foreground p-4 bg-white retro-shadow-md rounded-2xl w-full max-w-md">
-            
-            <div className="w-full h-80 bg-[#D2E9F9] border-2 border-foreground rounded-t-full overflow-hidden relative group">
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent z-10" />
-              <img 
-                src="https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?auto=format&fit=crop&w=600&q=80" 
-                alt="Showcase Visual Art" 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute bottom-4 left-4 right-4 z-20 bg-white border border-foreground p-3 rounded-xl retro-shadow-sm text-xs font-bold">
-                ✨ Discovering continuous thematic threads across visual, audio, and written art.
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2.5 mt-4">
-              <div className="h-14 rounded-xl border border-foreground bg-[#FFEAA7] retro-shadow-sm" />
-              <div className="h-14 rounded-xl border border-foreground bg-[#E8C5C8] retro-shadow-sm" />
-              <div className="h-14 rounded-xl border border-foreground bg-[#4F46E5] retro-shadow-sm" />
-              <div className="h-14 rounded-xl border border-foreground bg-[#FAD3A2] retro-shadow-sm" />
-            </div>
-          </div>
-        </div>
 
       </div>
 
