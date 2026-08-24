@@ -15,7 +15,9 @@ export class TmdbProvider implements MediaSearchProvider {
       }
       const data = await response.json();
 
-      return data.results.map((item: any) => this.mapToMediaResult(item));
+      return data.results
+        .filter((item: any) => item.media_type !== 'person')
+        .map((item: any) => this.mapToMediaResult(item));
     } catch (error) {
       throw error;
     }
@@ -80,6 +82,9 @@ export class TmdbProvider implements MediaSearchProvider {
         ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
         : undefined,
       rating: item.vote_average ? Number(item.vote_average) : undefined,
+      genres: Array.isArray(item.genres)
+        ? item.genres.map((g: any) => (typeof g === 'string' ? g : g?.name)).filter(Boolean)
+        : undefined,
       provider: 'tmdb',
       type: mediaType,
     };
