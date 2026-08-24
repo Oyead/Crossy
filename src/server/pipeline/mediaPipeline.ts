@@ -1,7 +1,7 @@
 import { providerRegistry } from '../integrations/registry';
-import { getGeminiClient } from '../ai/client';
+import { generateTextWithFallback } from '../ai/llmClient';
 import { buildMediaRecommendationPrompt, UserTasteContext } from '../ai/prompts';
-import { generateCandidatesWithAi, hydrateCandidates, dedupeMediaResults, filterResultsWithImages } from './candidateSearch';
+import { generateCandidatesWithAi, hydrateCandidates, dedupeMediaResults, filterResultsWithImages, normalizeTitle } from './candidateSearch';
 import type { MediaCandidate } from '../ai/schemas';
 import { guardedProviderSearch } from './circuitBreaker';
 import { Timings, timed } from '../../lib/trace';
@@ -15,10 +15,19 @@ import {
   PROVIDER_CACHE_TTL,
 } from '../../lib/cache';
 import { recallSimilarQueryMedia, persistSearchMemoryAsync } from '../context/searchMemory';
+import { recallItemsByQuery, backfillUnembeddedMediaAsync } from '../context/itemVectors';
+import { recallCoClickedItems } from './collaborative';
+import { normalizeGenres } from '../integrations/tagMap';
 import type { UserSearchSignal } from '../context/userSignal';
 
 function cacheKey(query: string): string {
   return `search:${normalizeQuery(query)}`;
+}
+
+export function fullCacheKey(query: string, personalization?: UserSearchSignal): string {
+  return personalization
+    ? `search:u${personalization.userId}:${normalizeQuery(query)}`
+    : cacheKey(query);
 }
 
 const CONFIDENCE_BANDS: Array<[number, number]> = [
@@ -108,12 +117,26 @@ export async function mergeMediaQueryResults(
     generateAndHydrateCandidates(query, candidatesPromise, baseResults)
   );
 
-  const memoryResults = await timed(timings, 'memory:recall', () =>
-    recallSimilarQueryMedia(query)
-  );
+  const [memoryResults, vectorResults, cfResults] = await Promise.all([
+    timed(timings, 'memory:recall', () => recallSimilarQueryMedia(query)),
+    timed(timings, 'vector:recall', () => recallItemsByQuery(query)),
+    timed(timings, 'cf:recall', () =>
+      recallCoClickedItems(
+        baseResults
+          .slice(0, 3)
+          .map((r) => ({ id: String(r.id), type: String(r.type) }))
+      )
+    ),
+  ]);
 
   const merged = filterResultsWithImages(
-    dedupeMediaResults([...aiResults, ...memoryResults, ...baseResults])
+    dedupeMediaResults([
+      ...aiResults,
+      ...vectorResults,
+      ...cfResults,
+      ...memoryResults,
+      ...baseResults,
+    ])
   );
 
   if (merged.length > 0) {
@@ -129,13 +152,14 @@ export async function rankMergedResults(
   query: string,
   merged: any[],
   timings?: Timings,
-  personalization?: UserSearchSignal
+  personalization?: UserSearchSignal,
+  cachedFullPromise?: Promise<any | null>
 ): Promise<any[]> {
-  const resultKey = personalization
-    ? `search:u${personalization.userId}:${normalizeQuery(query)}`
-    : cacheKey(query);
+  const resultKey = fullCacheKey(query, personalization);
 
-  const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(resultKey));
+  const cachedFullPromiseResolved =
+    cachedFullPromise ?? getCachedJson(resultKey);
+  const cachedFull = await timed(timings, 'cache:full', () => cachedFullPromiseResolved);
   if (cachedFull) return diversifyRanked(cachedFull);
 
   const results = await timed(timings, 'gemini:rank', () =>
@@ -154,11 +178,17 @@ export async function rankMergedResults(
       type: r.type,
       provider: r.provider,
       posterUrl: r.coverImage,
+      description: r.description,
+      genres: r.genres,
+      creators: r.creators,
+      rating: typeof r.rating === 'number' ? r.rating : undefined,
+      releaseDate: typeof r.releaseDate === 'string' ? r.releaseDate : undefined,
       reason: r.reason,
       confidence: r.confidence,
       userId: personalization?.userId ?? null,
     }))
   );
+  backfillUnembeddedMediaAsync();
 
   return results;
 }
@@ -170,16 +200,13 @@ export async function processMediaQueryEnhanced(
   candidatesPromise?: Promise<MediaCandidate[]>,
   personalization?: UserSearchSignal
 ): Promise<any[]> {
-  const resultKey = personalization
-    ? `search:u${personalization.userId}:${normalizeQuery(query)}`
-    : cacheKey(query);
-
-  const cachedFull = await timed(timings, 'cache:full', () => getCachedJson(resultKey));
+  const cachedFullPromise = getCachedJson(fullCacheKey(query, personalization));
+  const cachedFull = await timed(timings, 'cache:full', () => cachedFullPromise);
   if (cachedFull) return diversifyRanked(cachedFull);
 
   const { results: merged } = await mergeMediaQueryResults(query, baseResults, timings, candidatesPromise);
   if (merged.length === 0) return [];
-  return rankMergedResults(query, merged, timings, personalization);
+  return rankMergedResults(query, merged, timings, personalization, cachedFullPromise);
 }
 
 export async function processMediaQuery(
@@ -217,7 +244,7 @@ async function rankWithAi(
   allResults: any[],
   personalization?: UserSearchSignal
 ): Promise<any[]> {
-  const limitedResults = allResults.slice(0, 20);
+  const limitedResults = allResults.slice(0, 25);
   const compact = limitedResults.map((r, index) => ({
     index,
     title: r.title,
@@ -225,7 +252,7 @@ async function rankWithAi(
     provider: r.provider,
     releaseDate: r.releaseDate ?? null,
     rating: r.rating ?? null,
-    genres: Array.isArray(r.genres) ? r.genres.slice(0, 5) : [],
+    genres: normalizeGenres(r.genres)?.slice(0, 5) ?? [],
     creators: Array.isArray(r.creators) ? r.creators.slice(0, 3) : [],
     description: compactDescription(r.description),
   }));
@@ -236,11 +263,12 @@ async function rankWithAi(
   const recommendationPrompt = buildMediaRecommendationPrompt(query, compact, tasteContext);
 
   try {
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-
-    const result = await model.generateContent(recommendationPrompt, { timeout: 15000 });
-    const aiResponse = result.response.text();
+    const { text: aiResponse, provider } = await generateTextWithFallback({
+      prompt: recommendationPrompt,
+      taskLabel: 'rank',
+      timeoutMs: 15000,
+    });
+    console.log(`[search] rank via ${provider} for "${query}"`);
 
     let recommendations: any[] = [];
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
@@ -269,7 +297,18 @@ async function rankWithAi(
       })
       .filter((rec: any): rec is any => rec !== null);
 
-    return enriched.length > 0 ? enriched : limitedResults;
+    // Safety net: never lose candidates the model skipped or duplicated.
+    const queryKey = normalizeTitle(query);
+    const directMatch = limitedResults.find(
+      (r) => normalizeTitle(r.title) === queryKey
+    );
+    if (directMatch && !enriched.some((r) => r.id === directMatch.id)) {
+      enriched.unshift({ ...directMatch, confidence: 1, reason: 'Exact match for your search' });
+    }
+    const rankedIds = new Set(enriched.map((r) => r.id));
+    const leftovers = limitedResults.filter((r) => !rankedIds.has(r.id));
+
+    return [...enriched, ...leftovers];
   } catch (error) {
     console.error('[search] Gemini ranking failed:', error);
     return limitedResults;
