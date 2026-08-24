@@ -10,10 +10,9 @@ interface MediaTypeSectionProps {
     title: string;
     description?: string;
     coverImage?: string;
-    rating?: number;
     provider: string;
     reason?: string;
-    confidence?: number;
+    position?: number;
   }>;
   favoritedIds?: Set<string>;
   sourceQuery?: string;
@@ -49,11 +48,10 @@ export default function MediaTypeSection({
             title={item.title}
             description={item.description}
             coverImage={item.coverImage}
-            rating={item.rating}
             type={type}
             provider={item.provider}
             reason={item.reason}
-            confidence={item.confidence}
+            position={item.position}
             favorited={favoritedIds?.has(item.id) ?? false}
             onToggleFavorite={async (mediaData) => {
               if (onToggleFavorite) {
