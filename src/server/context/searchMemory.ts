@@ -1,69 +1,17 @@
-import OpenAI from "openai";
 import prisma from "@/server/db/prisma";
+import { Prisma } from "@prisma/client";
+import {
+  EMBEDDING_DIMS,
+  embedText,
+  toVectorLiteral,
+} from "./embed";
+import { ensureMediaEmbedding, mediaRowToResult } from "./itemVectors";
+import { normalizeGenres } from "../integrations/tagMap";
 import type { MediaResult } from "../integrations/MediaSearchProvider";
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
-const EMBEDDING_DIMS = 1536;
 const SIMILARITY_DISTANCE_THRESHOLD = 0.9;
 const RECALL_LIMIT = 5;
 const PERSIST_RESULT_LIMIT = 20;
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI | null {
-  if (!process.env.OPENAI_API_KEY) return null;
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 8000,
-      maxRetries: 1,
-    });
-  }
-  return openaiClient;
-}
-
-function toVectorLiteral(embedding: number[]): string {
-  return `[${embedding.join(",")}]`;
-}
-
-export async function embedText(text: string): Promise<number[] | null> {
-  const client = getOpenAIClient();
-  if (!client) return null;
-
-  try {
-    const response = await client.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: text.slice(0, 2000),
-      dimensions: EMBEDDING_DIMS,
-    });
-    return response.data?.[0]?.embedding ?? null;
-  } catch (error) {
-    console.error("[searchMemory] Embedding failed:", error);
-    return null;
-  }
-}
-
-function mediaRowToResult(m: {
-  externalId: string;
-  title: string;
-  mediaType: string;
-  sourceApi: string;
-  posterUrl: string | null;
-  metadata: unknown;
-}): MediaResult {
-  const md = (m.metadata ?? {}) as Record<string, unknown>;
-  return {
-    id: m.externalId,
-    title: m.title,
-    type: m.mediaType as MediaResult["type"],
-    provider: m.sourceApi,
-    coverImage: m.posterUrl ?? undefined,
-    description: typeof md.overview === "string" ? md.overview : typeof md.description === "string" ? md.description : undefined,
-    rating: typeof md.rating === "number" ? md.rating : undefined,
-    releaseDate: typeof md.releaseDate === "string" ? md.releaseDate : undefined,
-    genres: Array.isArray(md.genres) ? (md.genres as string[]) : undefined,
-  };
-}
 
 export async function recallSimilarQueryMedia(
   query: string
@@ -114,19 +62,37 @@ export async function recallSimilarQueryMedia(
   }
 }
 
-export function persistSearchMemoryAsync(
+export interface PersistableResult {
+  id: string;
+  title: string;
+  type: string;
+  provider: string;
+  posterUrl?: string;
+  description?: string;
+  genres?: string[];
+  creators?: string[];
+  rating?: number;
+  releaseDate?: string;
+  reason?: string;
+  confidence?: number;
+  userId?: string | null;
+}
+
+export function buildMediaMetadata(result: PersistableResult): Prisma.InputJsonObject {
+  const md: Record<string, unknown> = {
+    overview: result.description,
+    rating: typeof result.rating === "number" ? result.rating : undefined,
+    releaseDate: result.releaseDate,
+    genres: normalizeGenres(result.genres) ?? result.genres?.filter((g) => typeof g === "string"),
+    creators: result.creators?.filter((c) => typeof c === "string"),
+  };
+  return JSON.parse(JSON.stringify(md)) as Prisma.InputJsonObject;
+}
+
+export async function persistSearchMemoryAsync(
   query: string,
-  results: Array<{
-    id: string;
-    title: string;
-    type: string;
-    provider: string;
-    posterUrl?: string;
-    reason?: string;
-    confidence?: number;
-    userId?: string | null;
-  }>
-): void {
+  results: PersistableResult[]
+): Promise<void> {
   void persistSearchMemory(query, results).catch((error) =>
     console.error("[searchMemory] Persist failed:", error)
   );
@@ -134,7 +100,7 @@ export function persistSearchMemoryAsync(
 
 async function persistSearchMemory(
   query: string,
-  results: Parameters<typeof persistSearchMemoryAsync>[1]
+  results: PersistableResult[]
 ): Promise<void> {
   const userId = results.find((r) => r.userId)?.userId ?? null;
 
@@ -170,9 +136,32 @@ async function persistSearchMemory(
           title: result.title,
           posterUrl: result.posterUrl ?? null,
           sourceApi: result.provider,
-          metadata: {},
+          metadata: buildMediaMetadata(result),
         },
       });
+
+      // Backfill metadata for rows persisted before enrichment existed.
+      const md = (media.metadata ?? {}) as Record<string, unknown>;
+      if (Object.keys(md).length === 0) {
+        await prisma.media
+          .update({
+            where: { id: media.id },
+            data: { metadata: buildMediaMetadata(result) },
+          })
+          .catch(() => undefined);
+      }
+
+      // Item-side embedding: puts this row into the shared vector space.
+      void ensureMediaEmbedding({
+        id: media.id,
+        title: media.title,
+        mediaType: media.mediaType,
+        metadata:
+          Object.keys(md).length > 0
+            ? md
+            : buildMediaMetadata(result),
+      });
+
       recommendations.push({
         queryId: searchQuery.id,
         mediaId: media.id,
