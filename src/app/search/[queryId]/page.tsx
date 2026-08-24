@@ -1,14 +1,17 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import ResultsGrid from "@/components/results/ResultsGrid";
+import ResultsSkeleton from "@/components/results/ResultsSkeleton";
 import { getCurrentUserId } from "@/lib/auth";
 import { getUserSearchSignal, type UserSearchSignal } from "@/server/context/userSignal";
 import {
   processMediaQueryFast,
   mergeMediaQueryResults,
   rankMergedResults,
+  fullCacheKey,
 } from "@/server/pipeline/mediaPipeline";
 import { generateCandidatesWithAi } from "@/server/pipeline/candidateSearch";
+import { getCachedJson } from "@/lib/cache";
 import { createTimings } from "@/lib/trace";
 
 function EmptyState() {
@@ -31,29 +34,9 @@ export default async function Page({ params }: { params: { queryId: string } }) 
   const { queryId } = params;
   const query = decodeURIComponent(queryId);
 
-  const timings = createTimings();
-  const candidatesPromise = generateCandidatesWithAi(query);
-  const initial = await processMediaQueryFast(query, timings);
-  console.log(`[search] "${query}" fast phase: ${timings.toHeader()}`);
-
-  let personalization: UserSearchSignal | undefined;
-  try {
-    const userId = await getCurrentUserId();
-    if (userId) {
-      personalization = await getUserSearchSignal(userId, query);
-    }
-  } catch (error) {
-    console.error("[search] Failed to load user signal:", error);
-  }
-
-  try {
-    headers().set("Server-Timing", timings.toHeader());
-  } catch (error) {
-  }
-
   return (
     <section className="relative overflow-hidden min-h-screen px-4 sm:px-8 py-10 lg:py-16 bg-[#FAF6EE]">
-      
+
       <div className="absolute top-12 left-10 text-[#1a1a15] opacity-10 hidden xl:block select-none pointer-events-none">
         <svg width="72" height="72" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0L14.8 9.2L24 12L14.8 14.8L12 24L9.2 14.8L0 12L9.2 9.2Z"/>
@@ -61,9 +44,9 @@ export default async function Page({ params }: { params: { queryId: string } }) 
       </div>
 
       <div className="mx-auto max-w-7xl">
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-16">
-          
+
           <div className="lg:col-span-7 flex flex-col items-start">
             <div className="relative border-2 border-[#1a1a15] p-6 sm:p-8 rounded-2xl bg-white shadow-[8px_8px_0px_#1a1a15] w-full">
               <span className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-[#FFEAA7] border border-[#1a1a15]" />
@@ -85,7 +68,7 @@ export default async function Page({ params }: { params: { queryId: string } }) 
                 </span>
               </h1>
             </div>
-            
+
             <p className="mt-6 text-sm sm:text-base text-[#1a1a15]/70 font-medium max-w-xl pl-2 leading-relaxed">
               We parsed your exploration seed across film repositories, game catalogs, vinyl databases, and literary texts to formulate an interconnected aesthetic matching grid.
             </p>
@@ -96,26 +79,54 @@ export default async function Page({ params }: { params: { queryId: string } }) 
         <div className="w-full border-t-2 border-dashed border-[#1a1a15]/30 mb-12" />
 
         <div className="w-full min-h-[400px]">
-          <Suspense
-            fallback={
-              initial.length === 0 ? (
-                <EmptyState />
-              ) : (
-                <ResultsGrid results={initial} query={query} />
-              )
-            }
-          >
-            <MergedResults
-              query={query}
-              initial={initial}
-              candidatesPromise={candidatesPromise}
-              personalization={personalization}
-            />
+          <Suspense fallback={<ResultsSkeleton />}>
+            <SearchResults query={query} />
           </Suspense>
         </div>
 
       </div>
     </section>
+  );
+}
+
+async function SearchResults({ query }: { query: string }) {
+  const timings = createTimings();
+  const candidatesPromise = generateCandidatesWithAi(query);
+  const initial = await processMediaQueryFast(query, timings);
+  console.log(`[search] "${query}" fast phase: ${timings.toHeader()}`);
+
+  let personalization: UserSearchSignal | undefined;
+  try {
+    const userId = await getCurrentUserId();
+    if (userId) {
+      personalization = await getUserSearchSignal(userId, query);
+    }
+  } catch (error) {
+    console.error("[search] Failed to load user signal:", error);
+  }
+
+  try {
+    headers().set("Server-Timing", timings.toHeader());
+  } catch (error) {
+  }
+
+  return (
+    <Suspense
+      fallback={
+        initial.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <ResultsGrid results={initial} query={query} />
+        )
+      }
+    >
+      <MergedResults
+        query={query}
+        initial={initial}
+        candidatesPromise={candidatesPromise}
+        personalization={personalization}
+      />
+    </Suspense>
   );
 }
 
@@ -131,6 +142,13 @@ async function MergedResults({
   personalization?: UserSearchSignal;
 }) {
   const timings = createTimings();
+  if (personalization) {
+    const cachedFull = await getCachedJson<any[]>(fullCacheKey(query, personalization));
+    if (cachedFull && cachedFull.length > 0) {
+      console.log(`[search] "${query}" merged phase: personalized cache hit`);
+      return <ResultsGrid results={cachedFull} query={query} />;
+    }
+  }
   const { results: merged } = await mergeMediaQueryResults(
     query,
     initial,
