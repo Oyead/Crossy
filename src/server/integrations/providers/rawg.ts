@@ -40,15 +40,18 @@ export class RawgProvider implements MediaSearchProvider {
   }
 
   private mapGameToMediaResult(game: any): MediaResult {
-    const rating = typeof game.rating === 'number' && game.rating_top
-      ? Math.round((game.rating / game.rating_top) * 10)
-      : game.metacritic ?? undefined;
+    const rating =
+      typeof game.rating === 'number' && game.rating_top
+        ? Math.round((game.rating / game.rating_top) * 10)
+        : typeof game.metacritic === 'number'
+          ? Math.round(game.metacritic / 10)
+          : undefined;
 
     return {
       ...game,
       id: String(game.id),
       title: game.name || 'Unknown Title',
-      description: game.description || game.description_raw || '',
+      description: game.description_raw || game.description || '',
       releaseDate: game.released || undefined,
       coverImage: game.background_image || undefined,
       rating,
