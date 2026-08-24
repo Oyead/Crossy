@@ -17,6 +17,7 @@ model Media {
   title           String
   posterUrl       String?
   metadata        Json
+  embedding       Unsupported("vector(1536)")?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -39,6 +40,21 @@ model SearchQuery {
   recommendations Recommendation[]
 
   @@index([rawInput])
+}
+
+model Interaction {
+  id          String   @id @default(cuid())
+  userId      String?
+  kind        String
+  query       String?
+  mediaType   String
+  externalId  String
+  sourceApi   String?
+  position    Int?
+  createdAt   DateTime @default(now())
+
+  @@index([kind, mediaType, externalId])
+  @@index([userId, kind])
 }
 
 model Recommendation {
