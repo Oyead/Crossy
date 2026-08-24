@@ -1,5 +1,6 @@
 import SearchBar from "../components/search/SearchBar";
 import MediaPhrase from "../components/hero/MediaPhrase";
+import ForYouSection from "../components/home/ForYouSection";
 import {
   Clapperboard,
   Music,
@@ -108,6 +109,8 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      <ForYouSection />
 
       <div className="mask-fade-x animate-marquee flex w-max gap-4 py-6 border-y-2 border-foreground bg-white mt-8 font-bold text-sm text-foreground uppercase tracking-wider">
         {[...MEDIA_TYPES, ...MEDIA_TYPES].map((type, index) => (
