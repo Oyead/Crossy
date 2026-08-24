@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getCurrentUserId } from "@/lib/auth"
 import prisma from "@/server/db/prisma"
+import { ensureMediaEmbedding } from "@/server/context/itemVectors"
 
 export async function GET() {
   const userId = await getCurrentUserId()
@@ -83,6 +84,14 @@ export async function POST(request: Request) {
           mediaId: media.id,
           sourceQuery: typeof sourceQuery === "string" && sourceQuery.trim() ? sourceQuery.trim() : null
         }
+      })
+
+      // Keep the item's vector fresh so taste vectors stay meaningful
+      void ensureMediaEmbedding({
+        id: media.id,
+        title: media.title,
+        mediaType: media.mediaType,
+        metadata: media.metadata
       })
 
       return NextResponse.json({ success: true, favorited: true })
