@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { providerForMediaType } from "@/server/integrations/registry"
 import { processMediaQuery } from "@/server/pipeline/mediaPipeline"
 import prisma from "@/server/db/prisma"
+import { recallItemsByVector } from "@/server/context/itemVectors"
+import { toVectorLiteral } from "@/server/context/embed"
 
 export async function GET(
   request: Request,
@@ -23,6 +25,33 @@ export async function GET(
   const mediaItem = await provider.getDetails(id, type)
   if (!mediaItem) {
     return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+  }
+
+  // Fast path: nearest neighbors of the item's own description embedding.
+  try {
+    const rows = await prisma.$queryRaw<Array<{ id: string; embedding: string }>>`
+      SELECT id, embedding::text AS embedding
+      FROM "Media"
+      WHERE "mediaType" = ${type} AND "externalId" = ${id} AND embedding IS NOT NULL
+      LIMIT 1
+    `
+    if (rows.length > 0) {
+      const vector = toVectorLiteral(
+        (rows[0].embedding || '').replace(/[[\]]/g, '').split(',').map(Number).filter(Number.isFinite)
+      )
+      const neighbors = await recallItemsByVector(vector, {
+        limit: 10,
+        distanceThreshold: 0.95,
+      })
+      const filtered = neighbors
+        .map((n) => n.result)
+        .filter((item) => item.id !== id)
+      if (filtered.length >= 4) {
+        return NextResponse.json(filtered)
+      }
+    }
+  } catch (error) {
+    console.error('[similar] Vector path failed, falling back to pipeline:', error)
   }
 
   try {
