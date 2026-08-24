@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { X, Star } from "lucide-react";
 import MediaTypeSection from "./MediaTypeSection";
 import { getUserFavorites, toggleFavorite } from "@/lib/favorites";
+import { logInteractions } from "@/lib/interactions";
 
 interface ResultsGridProps {
   query?: string;
@@ -14,11 +15,9 @@ interface ResultsGridProps {
     title: string;
     description?: string;
     coverImage?: string;
-    rating?: number;
     provider: string;
     type: string;
     reason?: string;
-    confidence?: number;
   }>;
 }
 
@@ -27,9 +26,9 @@ const TYPE_ORDER = ["movie", "tv", "music", "book", "game"];
 const TYPE_STYLES: Record<string, { label: string; bg: string; rotation: string }> = {
   movie: { label: "Movies", bg: "bg-[#D2E9F9]", rotation: "rotate-[-0.5deg]" },
   tv: { label: "Television", bg: "bg-[#D2E9F9]", rotation: "rotate-[0.5deg]" },
-  music: { label: "Music", bg: "bg:#FAD3A2", rotation: "rotate-[-1deg]" },
-  book: { label: "Books", bg: "bg:#E8C5C8", rotation: "rotate-[1deg]" },
-  game: { label: "Games", bg: "bg:#FFEAA7", rotation: "rotate-[-0.5deg]" },
+  music: { label: "Music", bg: "bg-[#FAD3A2]", rotation: "rotate-[-1deg]" },
+  book: { label: "Books", bg: "bg-[#E8C5C8]", rotation: "rotate-[1deg]" },
+  game: { label: "Games", bg: "bg-[#FFEAA7]", rotation: "rotate-[-0.5deg]" },
 };
 
 export default function ResultsGrid({ query, results }: ResultsGridProps) {
@@ -37,12 +36,31 @@ export default function ResultsGrid({ query, results }: ResultsGridProps) {
   const [loading, setLoading] = useState<boolean>(true);
   const [showLoginPrompt, setShowLoginPrompt] = useState<boolean>(false);
   const { status } = useSession();
+  const loggedImpressionsRef = useRef<string>("");
 
   useEffect(() => {
     if (!showLoginPrompt) return;
     const timer = setTimeout(() => setShowLoginPrompt(false), 6000);
     return () => clearTimeout(timer);
   }, [showLoginPrompt]);
+
+  // Impression logging: once per unique result set
+  useEffect(() => {
+    if (results.length === 0) return;
+    const key = `${query ?? ""}::${results.map((r) => `${r.type}:${r.id}`).join("|")}`;
+    if (loggedImpressionsRef.current === key) return;
+    loggedImpressionsRef.current = key;
+    logInteractions(
+      results.slice(0, 20).map((r, i) => ({
+        kind: "impression" as const,
+        query,
+        mediaType: r.type,
+        externalId: r.id,
+        sourceApi: r.provider,
+        position: i + 1,
+      }))
+    );
+  }, [results, query]);
 
   // Load user favorites once signed in
   useEffect(() => {
@@ -66,13 +84,13 @@ export default function ResultsGrid({ query, results }: ResultsGridProps) {
     loadFavorites();
   }, [status]);
 
-  const grouped = results.reduce((acc, item) => {
+  const grouped = results.reduce((acc, item, index) => {
     if (!acc[item.type]) {
       acc[item.type] = [];
     }
-    acc[item.type].push(item);
+    acc[item.type].push({ ...item, position: index + 1 });
     return acc;
-  }, {} as Record<string, Array<typeof results[0]>>);
+  }, {} as Record<string, Array<typeof results[0] & { position: number }>>);
 
   const sortedTypes = Object.keys(grouped).sort(
     (a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b)
@@ -186,10 +204,8 @@ export default function ResultsGrid({ query, results }: ResultsGridProps) {
                   title: item.title,
                   description: item.description,
                   coverImage: item.coverImage,
-                  rating: item.rating,
                   provider: item.provider,
                   reason: item.reason,
-                  confidence: item.confidence,
                 }))}
                 favoritedIds={favoritedIds}
                 onToggleFavorite={handleToggleFavorite}
