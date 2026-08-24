@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 2000;
+const DEFAULT_TIMEOUT_MS = 4000;
 
 export function fetchWithTimeout(
   url: string,
