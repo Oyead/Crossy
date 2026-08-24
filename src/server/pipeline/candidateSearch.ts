@@ -1,6 +1,6 @@
 import { providerRegistry } from '../integrations/registry';
-import { getGeminiClient } from '../ai/client';
 import { buildMediaCandidatePrompt } from '../ai/prompts';
+import { generateTextWithFallback } from '../ai/llmClient';
 import { mediaCandidatesSchema, MediaCandidate } from '../ai/schemas';
 import { MediaResult } from '../integrations/MediaSearchProvider';
 import { guardedProviderSearch } from './circuitBreaker';
@@ -27,6 +27,51 @@ export function filterResultsWithImages<T extends { coverImage?: string }>(resul
   return results.filter((result) => Boolean(result.coverImage));
 }
 
+const MEDIA_RESULT_FIELDS = [
+  'id',
+  'title',
+  'description',
+  'releaseDate',
+  'coverImage',
+  'rating',
+  'provider',
+  'type',
+  'genres',
+  'creators',
+  'externalUrl',
+] as const;
+
+function toStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const cleaned = value
+    .map((entry) => {
+      if (typeof entry === 'string') return entry;
+      if (entry && typeof entry === 'object' && typeof (entry as any).name === 'string') {
+        return (entry as any).name as string;
+      }
+      return null;
+    })
+    .filter((entry): entry is string => Boolean(entry));
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+export function compactMediaResults<T extends MediaResult>(results: T[]): T[] {
+  return results.map((result) => {
+    const compact: Record<string, unknown> = {};
+    for (const field of MEDIA_RESULT_FIELDS) {
+      const value = result[field];
+      if (value === undefined || value === null) continue;
+      if (field === 'genres' || field === 'creators') {
+        const list = toStringArray(value);
+        if (list) compact[field] = list;
+        continue;
+      }
+      compact[field] = value;
+    }
+    return compact as T;
+  });
+}
+
 export async function generateCandidatesWithAi(query: string): Promise<MediaCandidate[]> {
   const cacheKey = `candidates:${normalizeQuery(query)}`;
 
@@ -37,10 +82,12 @@ export async function generateCandidatesWithAi(query: string): Promise<MediaCand
   }
 
   try {
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
-    const result = await model.generateContent(buildMediaCandidatePrompt(query), { timeout: 12000 });
-    const text = result.response.text();
+    const { text, provider } = await generateTextWithFallback({
+      prompt: buildMediaCandidatePrompt(query),
+      taskLabel: 'candidates',
+      timeoutMs: 12000,
+    });
+    console.log(`[search] candidates via ${provider} for "${query}"`);
 
     const jsonMatch = text.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
     if (!jsonMatch) return [];
@@ -65,7 +112,11 @@ async function hydrateCandidate(
   const normalizedTitle = normalizeTitle(candidate.title);
 
   const existing = baseResults.find(
-    (r) => normalizeTitle(r.title) === normalizedTitle && r.coverImage
+    (r) =>
+      normalizeTitle(r.title) === normalizedTitle &&
+      r.provider.toLowerCase() === candidate.provider.toLowerCase() &&
+      r.type === candidate.type &&
+      r.coverImage
   );
   if (existing) {
     return {
