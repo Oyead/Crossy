@@ -13,8 +13,12 @@ export async function middleware(request: NextRequest) {
         }
     }
 
+    const isSuggest = request.nextUrl.pathname.startsWith('/api/suggest');
+
     try {
-        await rateLimitMiddleware(ip, 100, '15 m');
+        if (!isSuggest) {
+            await rateLimitMiddleware(`api:${ip}`, 100, '15 m');
+        }
     } catch (error) {
         if (error instanceof Error && error.message === 'Rate limit exceeded') {
             return new NextResponse('Too Many Requests', { status: 429 });
