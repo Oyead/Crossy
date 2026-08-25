@@ -46,7 +46,6 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "Discover", href: "/" },
-    { name: "Media Catalog", href: "#" },
     { name: "My Library", href: "/favorites" },
     ];
 
