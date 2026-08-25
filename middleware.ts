@@ -21,9 +21,8 @@ export async function middleware(request: NextRequest) {
         }
     } catch (error) {
         if (error instanceof Error && error.message === 'Rate limit exceeded') {
-            return new NextResponse('Too Many Requests', { status: 429 });
+            return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
         }
-        console.error('Rate limit middleware error:', error);
     }
 
     const requestHeaders = new Headers(request.headers);
