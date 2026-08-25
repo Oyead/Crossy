@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateRegistrationOptions, generateAuthenticationOptions } from '@simplewebauthn/server';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
-import { challengeStore } from '@/lib/webauthnChallengeStore';
-
-// In production, you would use a database or a more secure session store.
-// For demonstration, we use the challengeStore from '@/lib/webauthnChallengeStore'.
+import { setChallenge } from '@/lib/webauthnChallengeStore';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -45,7 +42,7 @@ export async function GET(request: Request) {
     const challengeBase64 = options.challenge;
     // Store the challenge with an expiration time (e.g., 5 minutes)
     const expires = Date.now() + 5 * 60 * 1000; // 5 minutes from now
-    challengeStore.set(challengeBase64, { challenge: options.challenge, expires });
+    await setChallenge(challengeBase64, options.challenge, expires);
 
     // Remove the challenge from the options before sending to the client
     // (the client should not see the challenge)
