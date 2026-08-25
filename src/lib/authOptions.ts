@@ -9,8 +9,19 @@ import { getChallenge, deleteChallenge } from '@/lib/webauthnChallengeStore';
 import bcrypt from 'bcryptjs';
 import prisma from '@/server/db/prisma';
 
+function safePrismaAdapter() {
+  const adapter = PrismaAdapter(prisma);
+  return {
+    ...adapter,
+    linkAccount: async (account: any) => {
+      const { refresh_token_expires_in, ...rest } = account;
+      return adapter.linkAccount!(rest);
+    },
+  };
+}
+
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: safePrismaAdapter(),
   providers: [
     GitHubProvider({
       clientId: process.env.GITHUB_ID,
