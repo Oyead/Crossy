@@ -24,6 +24,7 @@
     "@upstash/ratelimit": "^2.0.0",
     "@upstash/redis": "^1.31.0",
     "axios": "^1.18.1",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.417.0",
@@ -39,7 +40,6 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.14.0",
     "@types/react": "^18.3.0",

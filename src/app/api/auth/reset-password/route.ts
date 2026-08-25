@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { decode } from "next-auth/jwt";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import prisma from "@/server/db/prisma";
 
 export async function POST(req: Request) {
