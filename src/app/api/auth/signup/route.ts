@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { createHash, randomInt } from "crypto";
 import prisma from "@/server/db/prisma";
 import { sendVerificationCode } from "@/lib/mailer";

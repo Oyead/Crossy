@@ -6,7 +6,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { verifyRegistrationResponse, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
 import { getChallenge, deleteChallenge } from '@/lib/webauthnChallengeStore';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import prisma from '@/server/db/prisma';
 
 export const authOptions: NextAuthOptions = {
