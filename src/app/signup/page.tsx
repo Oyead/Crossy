@@ -42,8 +42,9 @@ export default function SignupPage() {
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Failed to create account');
+        let msg = 'Failed to create account';
+        try { const d = await res.json(); msg = d.error || msg; } catch {}
+        setError(msg);
         return;
       }
       const data = await res.json();
@@ -69,7 +70,8 @@ export default function SignupPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),
       });
-      const data = await res.json();
+      let data: any = {};
+      try { data = await res.json(); } catch {}
       if (!res.ok) {
         setError(data.error || 'Verification failed');
         return;
@@ -100,8 +102,9 @@ export default function SignupPage() {
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Failed to resend code');
+        let msg = 'Failed to resend code';
+        try { const d = await res.json(); msg = d.error || msg; } catch {}
+        setError(msg);
         return;
       }
       setCodeNotice('A new code has been sent.');
