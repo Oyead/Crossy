@@ -1,47 +1,40 @@
-const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
-const CODE_EMAIL_FROM = `Crossy <noreply@${MAILGUN_DOMAIN}>`;
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD,
+  },
+});
+
+const CODE_EMAIL_FROM = `Crossy <${process.env.GMAIL_USER}>`;
 
 async function sendEmail(
   to: string[],
   subject: string,
   html: string
 ): Promise<{ delivered: boolean }> {
-  const apiKey = process.env.MAILGUN_API_KEY;
-
-  if (!apiKey || !MAILGUN_DOMAIN) {
-    console.error("[mailer] MAILGUN_API_KEY or MAILGUN_DOMAIN not set");
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    console.error("[mailer] GMAIL_USER or GMAIL_APP_PASSWORD not set");
     return { delivered: false };
   }
 
   console.log(`[mailer] Sending email to=${to} from="${CODE_EMAIL_FROM}" subject="${subject}"`);
 
-  const formData = new URLSearchParams();
-  formData.append("from", CODE_EMAIL_FROM);
-  to.forEach((addr) => formData.append("to", addr));
-  formData.append("subject", subject);
-  formData.append("html", html);
-
-  const res = await fetch(
-    `https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${Buffer.from(`api:${apiKey}`).toString("base64")}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: formData.toString(),
-    }
-  );
-
-  const body = await res.text();
-  console.log(`[mailer] Mailgun response: status=${res.status} body=${body}`);
-
-  if (!res.ok) {
-    console.error("[mailer] Mailgun delivery failed:", res.status, body);
+  try {
+    const info = await transporter.sendMail({
+      from: CODE_EMAIL_FROM,
+      to: to.join(", "),
+      subject,
+      html,
+    });
+    console.log("[mailer] Email sent:", info.messageId);
+    return { delivered: true };
+  } catch (error) {
+    console.error("[mailer] Gmail send failed:", error);
     return { delivered: false };
   }
-
-  return { delivered: true };
 }
 
 export async function sendVerificationCode(
