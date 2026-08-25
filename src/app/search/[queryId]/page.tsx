@@ -105,81 +105,26 @@ async function SearchResults({ query }: { query: string }) {
     console.error("[search] Failed to load user signal:", error);
   }
 
-  try {
-    headers().set("Server-Timing", timings.toHeader());
-  } catch (error) {
-  }
-
-  return (
-    <Suspense
-      fallback={
-        initial.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <ResultsGrid results={initial} query={query} />
-        )
-      }
-    >
-      <MergedResults
-        query={query}
-        initial={initial}
-        candidatesPromise={candidatesPromise}
-        personalization={personalization}
-      />
-    </Suspense>
-  );
-}
-
-async function MergedResults({
-  query,
-  initial,
-  candidatesPromise,
-  personalization,
-}: {
-  query: string;
-  initial: Array<any>;
-  candidatesPromise: ReturnType<typeof generateCandidatesWithAi>;
-  personalization?: UserSearchSignal;
-}) {
-  const timings = createTimings();
   if (personalization) {
     const cachedFull = await getCachedJson<any[]>(fullCacheKey(query, personalization));
     if (cachedFull && cachedFull.length > 0) {
-      console.log(`[search] "${query}" merged phase: personalized cache hit`);
+      console.log(`[search] "${query}" personalized cache hit`);
+      try { headers().set("Server-Timing", timings.toHeader()); } catch {}
       return <ResultsGrid results={cachedFull} query={query} />;
     }
   }
-  const { results: merged } = await mergeMediaQueryResults(
-    query,
-    initial,
-    timings,
-    candidatesPromise
-  );
+
+  const { results: merged } = await mergeMediaQueryResults(query, initial, timings, candidatesPromise);
   console.log(`[search] "${query}" merged phase: ${timings.toHeader()}`);
 
   if (merged.length === 0) {
+    try { headers().set("Server-Timing", timings.toHeader()); } catch {}
     return <EmptyState />;
   }
 
-  return (
-    <Suspense fallback={<ResultsGrid results={merged} query={query} />}>
-      <RankedResults query={query} merged={merged} personalization={personalization} />
-    </Suspense>
-  );
-}
-
-async function RankedResults({
-  query,
-  merged,
-  personalization,
-}: {
-  query: string;
-  merged: Array<any>;
-  personalization?: UserSearchSignal;
-}) {
-  const timings = createTimings();
   const ranked = await rankMergedResults(query, merged, timings, personalization);
   console.log(`[search] "${query}" ranked phase: ${timings.toHeader()}`);
 
+  try { headers().set("Server-Timing", timings.toHeader()); } catch {}
   return <ResultsGrid results={ranked} query={query} />;
 }
