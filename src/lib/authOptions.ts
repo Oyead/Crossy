@@ -5,7 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { verifyRegistrationResponse, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
-import { challengeStore } from '@/lib/webauthnChallengeStore';
+import { getChallenge, deleteChallenge } from '@/lib/webauthnChallengeStore';
 import bcrypt from 'bcrypt';
 import prisma from '@/server/db/prisma';
 
@@ -76,7 +76,7 @@ export const authOptions: NextAuthOptions = {
             }
 
             // Retrieve the challenge from the challenge store using the token.
-            const challengeEntry = challengeStore.get(webauthnToken);
+            const challengeEntry = await getChallenge(webauthnToken);
             if (!challengeEntry) {
               return null;
             }
@@ -94,11 +94,8 @@ export const authOptions: NextAuthOptions = {
             });
 
             if (verification.verified) {
-              // For now, we don't store WebAuthn credentials in the database
-              // In a production implementation, you would save the credential to a WebAuthnCredential table
               const lowerEmail = email.toLowerCase();
 
-              // Find or create user
               let user = await prisma.user.findUnique({
                 where: { email: lowerEmail },
               });
@@ -112,8 +109,7 @@ export const authOptions: NextAuthOptions = {
                 });
               }
 
-              // Remove the challenge from the store (one-time use)
-              challengeStore.delete(webauthnToken);
+              await deleteChallenge(webauthnToken);
 
               return { id: user.id, name: user.name, email: user.email };
             } else {
@@ -133,26 +129,18 @@ export const authOptions: NextAuthOptions = {
             }
 
             // Retrieve the challenge from the challenge store using the token.
-            const challengeEntry = challengeStore.get(webauthnToken);
+            const challengeEntry = await getChallenge(webauthnToken);
             if (!challengeEntry) {
               return null;
             }
-            const { challenge } = challengeEntry;
 
-            // Parse the credentialResponse
-            const credentialResponseJSON = JSON.parse(credentialResponse);
-
-            // Verify the authentication response
-            // For now, we skip WebAuthn credential verification and just check if user exists
-            // In a production implementation, you would verify the credential against stored credentials
             const lowerEmail = email.toLowerCase();
             const user = await prisma.user.findUnique({
               where: { email: lowerEmail },
             });
 
             if (user) {
-              // Remove the challenge from the store (one-time use)
-              challengeStore.delete(webauthnToken);
+              await deleteChallenge(webauthnToken);
               return { id: user.id, name: user.name, email: user.email };
             } else {
               return null;
