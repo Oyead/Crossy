@@ -6,4 +6,4 @@ node_modules
 *.log
 dist
 .vercel
-tsconfig.tsbuildinfo
+tsconfig.tsbuildinfo.env.vercel
