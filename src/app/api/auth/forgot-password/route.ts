@@ -40,7 +40,11 @@ export async function POST(req: Request) {
       select: { id: true, password: true },
     });
 
-    if (user?.password) {
+    if (!user) {
+      console.log(`[forgot-password] No user found for ${lowerEmail}`);
+    } else if (!user.password) {
+      console.log(`[forgot-password] User ${lowerEmail} has no password (OAuth account?)`);
+    } else {
       const token = await encode({
         token: { id: user.id, sub: user.id, email: lowerEmail, purpose: "password-reset" },
         secret,
@@ -48,7 +52,8 @@ export async function POST(req: Request) {
       });
 
       const resetUrl = `${getBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
-      await sendPasswordResetEmail(lowerEmail, resetUrl);
+      const result = await sendPasswordResetEmail(lowerEmail, resetUrl);
+      console.log(`[forgot-password] Send result for ${lowerEmail}:`, result);
     }
 
     // Always respond the same way so attackers can't discover registered emails
