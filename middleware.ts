@@ -13,6 +13,9 @@ export async function middleware(request: NextRequest) {
         }
     }
 
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-user-ip', ip);
+
     const isSuggest = request.nextUrl.pathname.startsWith('/api/suggest');
 
     try {
@@ -25,13 +28,7 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-ip', ip);
-    return NextResponse.next({
-        request: {
-            headers: requestHeaders,
-        },
-    });
+    return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {
