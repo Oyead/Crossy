@@ -1,38 +1,43 @@
-const CODE_EMAIL_FROM = process.env.MAIL_FROM ?? "Crossy <onboarding@resend.dev>";
+const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN;
+const CODE_EMAIL_FROM = `Crossy <noreply@${MAILGUN_DOMAIN}>`;
 
 async function sendEmail(
   to: string[],
   subject: string,
   html: string
 ): Promise<{ delivered: boolean }> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.MAILGUN_API_KEY;
 
-  if (!apiKey) {
-    console.error("[mailer] RESEND_API_KEY not set");
+  if (!apiKey || !MAILGUN_DOMAIN) {
+    console.error("[mailer] MAILGUN_API_KEY or MAILGUN_DOMAIN not set");
     return { delivered: false };
   }
 
   console.log(`[mailer] Sending email to=${to} from="${CODE_EMAIL_FROM}" subject="${subject}"`);
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: CODE_EMAIL_FROM,
-      to,
-      subject,
-      html,
-    }),
-  });
+  const formData = new URLSearchParams();
+  formData.append("from", CODE_EMAIL_FROM);
+  to.forEach((addr) => formData.append("to", addr));
+  formData.append("subject", subject);
+  formData.append("html", html);
+
+  const res = await fetch(
+    `https://api.mailgun.net/v3/${MAILGUN_DOMAIN}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`api:${apiKey}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: formData.toString(),
+    }
+  );
 
   const body = await res.text();
-  console.log(`[mailer] Resend response: status=${res.status} body=${body}`);
+  console.log(`[mailer] Mailgun response: status=${res.status} body=${body}`);
 
   if (!res.ok) {
-    console.error("[mailer] Resend delivery failed:", res.status, body);
+    console.error("[mailer] Mailgun delivery failed:", res.status, body);
     return { delivered: false };
   }
 
