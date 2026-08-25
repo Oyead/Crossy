@@ -7,3 +7,5 @@ node_modules
 dist
 .vercel
 tsconfig.tsbuildinfo.env.vercel
+.env.vercel
+tsconfig.tsbuildinfo
