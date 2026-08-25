@@ -112,7 +112,7 @@ export default function Navbar() {
 
         <div className="hidden md:flex items-center">
           <Link
-            href="#"
+            href="/subscription"
             className="flex items-center gap-1.5 bg-[#FFEAA7] border-2 border-foreground px-4 py-2 rounded-xl text-xs font-black text-foreground uppercase tracking-wider retro-shadow-sm hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[1px_1px_0px_#1a1a15] transition-all"
           >
             <Sparkles className="h-3.5 w-3.5 text-[#4F46E5]" />
