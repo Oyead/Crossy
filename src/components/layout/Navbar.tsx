@@ -170,7 +170,7 @@ export default function Navbar() {
           )}
 
           <Link
-            href="#"
+            href="/subscription"
             onClick={() => setIsOpen(false)}
             className="w-full text-center bg-[#FFEAA7] border-2 border-foreground p-3 rounded-xl font-black text-sm uppercase tracking-wider retro-shadow-sm block"
           >
