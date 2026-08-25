@@ -142,15 +142,15 @@ The top 25 merged results are sent to the LLM with a ranking prompt. The AI retu
 
 ### Caching
 
-| Cache Key | TTL | Purpose |
-|-----------|-----|---------|
-| `search:{query}` | 1 hour | Full ranked results |
-| `search:u{userId}:{query}` | 1 hour | Personalized ranked results |
-| `fast:search:{query}` | 20 minutes | Intermediate merged results |
-| `candidates:{query}` | 15 minutes | AI-generated candidates |
-| `provider:{name}:{query}` | 20 minutes | Per-provider raw results |
-| `suggest:{query}` | 10 minutes | Autocomplete suggestions |
-| `cb:{provider}` | 30 minutes | Circuit breaker failure state |
+| Cache Key                    | TTL        | Purpose                       |
+| ---------------------------- | ---------- | ----------------------------- |
+| `search:{query}`           | 1 hour     | Full ranked results           |
+| `search:u{userId}:{query}` | 1 hour     | Personalized ranked results   |
+| `fast:search:{query}`      | 20 minutes | Intermediate merged results   |
+| `candidates:{query}`       | 15 minutes | AI-generated candidates       |
+| `provider:{name}:{query}`  | 20 minutes | Per-provider raw results      |
+| `suggest:{query}`          | 10 minutes | Autocomplete suggestions      |
+| `cb:{provider}`            | 30 minutes | Circuit breaker failure state |
 
 ## Authentication System
 
@@ -163,6 +163,7 @@ The top 25 merged results are sent to the LLM with a ranking prompt. The AI retu
 ### Authentication Flows
 
 **Email/Password Signup:**
+
 1. User submits email and password
 2. Password is hashed with bcrypt (10 rounds)
 3. A 6-digit verification code is generated and sent via email
@@ -170,17 +171,20 @@ The top 25 merged results are sent to the LLM with a ranking prompt. The AI retu
 5. On verification, the User record is created
 
 **Password Reset:**
+
 1. User requests a reset at `/forgot-password`
 2. A JWT token with 15-minute expiry is generated and emailed
 3. User clicks the link and sets a new password
 4. The endpoint always returns the same response to prevent email enumeration
 
 **OAuth (GitHub/Google):**
+
 1. Standard OAuth2 redirect flow
 2. On callback, the user is linked or created via PrismaAdapter
 3. The adapter strips `refresh_token_expires_in` from GitHub tokens to avoid Prisma validation errors
 
 **WebAuthn/Passkeys:**
+
 1. Registration and authentication options are generated via SimpleWebauthn
 2. Challenges are stored in Redis with 5-minute TTL
 3. Verification happens inside the NextAuth Credentials provider
@@ -201,43 +205,47 @@ Nine models backed by PostgreSQL with pgvector:
 
 ## API Routes
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/search?q=` | Full search pipeline |
-| GET | `/api/suggest?q=` | Autocomplete suggestions |
-| GET | `/api/favorites` | Get user's favorites |
-| POST | `/api/favorites` | Toggle a favorite |
-| DELETE | `/api/favorites` | Remove a favorite |
-| POST | `/api/interactions` | Log impressions/clicks |
-| GET | `/api/stats/ctr` | Click-through rate analytics |
-| GET | `/api/media/:type/:id` | Media details from provider |
-| GET | `/api/recommendations/for-you` | Personalized picks |
-| GET | `/api/recommendations/:id/similar` | Similar items |
-| GET | `/api/webauthn/options` | WebAuthn registration/auth options |
-| POST | `/api/auth/signup` | Register with email verification |
-| POST | `/api/auth/verify-signup` | Verify email code |
-| POST | `/api/auth/forgot-password` | Request password reset |
-| POST | `/api/auth/reset-password` | Reset password with token |
-| * | `/api/auth/[...nextauth]` | NextAuth handler |
+| Method | Path                                 | Description                        |
+| ------ | ------------------------------------ | ---------------------------------- |
+| GET    | `/api/search?q=`                   | Full search pipeline               |
+| GET    | `/api/suggest?q=`                  | Autocomplete suggestions           |
+| GET    | `/api/favorites`                   | Get user's favorites               |
+| POST   | `/api/favorites`                   | Toggle a favorite                  |
+| DELETE | `/api/favorites`                   | Remove a favorite                  |
+| POST   | `/api/interactions`                | Log impressions/clicks             |
+| GET    | `/api/stats/ctr`                   | Click-through rate analytics       |
+| GET    | `/api/media/:type/:id`             | Media details from provider        |
+| GET    | `/api/recommendations/for-you`     | Personalized picks                 |
+| GET    | `/api/recommendations/:id/similar` | Similar items                      |
+| GET    | `/api/webauthn/options`            | WebAuthn registration/auth options |
+| POST   | `/api/auth/signup`                 | Register with email verification   |
+| POST   | `/api/auth/verify-signup`          | Verify email code                  |
+| POST   | `/api/auth/forgot-password`        | Request password reset             |
+| POST   | `/api/auth/reset-password`         | Reset password with token          |
+| *      | `/api/auth/[...nextauth]`          | NextAuth handler                   |
 
 ## Rate Limiting and Circuit Breakers
 
 **Edge Middleware Rate Limiting:**
+
 - All API routes except `/api/suggest` are rate limited
 - 100 requests per 15 minutes per IP using Upstash sliding window
 - Returns JSON 429 response
 
 **Suggest Endpoint Rate Limiting:**
+
 - Separate in-memory rate limiter
 - 60 requests per minute per IP
 
 **Media Provider Circuit Breaker:**
+
 - Redis-backed, per-provider failure tracking
 - After 2 failures in 30 minutes, the provider is skipped
 - Allows one probe request after 60 seconds of cooldown
 - On success, resets the failure counter
 
 **LLM Provider Circuit Breaker:**
+
 - In-memory cooldown per provider
 - On failure, provider enters 60-second cooldown
 - Automatic fallback to next provider in the chain
@@ -246,29 +254,29 @@ Nine models backed by PostgreSQL with pgvector:
 
 ### Required
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (must have pgvector extension) |
-| `DIRECT_URL` | Direct database connection for Prisma migrations |
-| `NEXTAUTH_URL` | Base URL for NextAuth (e.g., `https://crossymedia-app.vercel.app`) |
-| `NEXTAUTH_SECRET` | Random secret for JWT signing |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
-| `GEMINI_API_KEY` | Google Gemini API key |
+| Variable                     | Description                                                         |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `DATABASE_URL`             | PostgreSQL connection string (must have pgvector extension)         |
+| `DIRECT_URL`               | Direct database connection for Prisma migrations                    |
+| `NEXTAUTH_URL`             | Base URL for NextAuth (e.g.,`https://crossymedia-app.vercel.app`) |
+| `NEXTAUTH_SECRET`          | Random secret for JWT signing                                       |
+| `UPSTASH_REDIS_REST_URL`   | Upstash Redis REST URL                                              |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token                                            |
+| `GEMINI_API_KEY`           | Google Gemini API key                                               |
 
 ### Optional
 
-| Variable | Description |
-|----------|-------------|
-| `TMDB_API_KEY` | TMDB API key for movie/TV search |
-| `RAWG_API_KEY` | RAWG API key for game search |
-| `GROQ_API_KEY` | Groq API key (LLM fallback) |
-| `OPENROUTER_API_KEY` | OpenRouter API key (LLM fallback) |
-| `OPENAI_API_KEY` | OpenAI API key (for embeddings only) |
-| `GITHUB_ID` / `GITHUB_SECRET` | GitHub OAuth credentials |
-| `GOOGLE_ID` / `GOOGLE_SECRET` | Google OAuth credentials |
+| Variable                                | Description                              |
+| --------------------------------------- | ---------------------------------------- |
+| `TMDB_API_KEY`                        | TMDB API key for movie/TV search         |
+| `RAWG_API_KEY`                        | RAWG API key for game search             |
+| `GROQ_API_KEY`                        | Groq API key (LLM fallback)              |
+| `OPENROUTER_API_KEY`                  | OpenRouter API key (LLM fallback)        |
+| `OPENAI_API_KEY`                      | OpenAI API key (for embeddings only)     |
+| `GITHUB_ID` / `GITHUB_SECRET`       | GitHub OAuth credentials                 |
+| `GOOGLE_ID` / `GOOGLE_SECRET`       | Google OAuth credentials                 |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Gmail SMTP credentials for email sending |
-| `NEXT_PUBLIC_APP_URL` | Public app URL for email links |
+| `NEXT_PUBLIC_APP_URL`                 | Public app URL for email links           |
 
 ## Getting Started
 
@@ -304,32 +312,3 @@ npx prisma db push
 ```bash
 npm run dev
 ```
-
-The app will be available at `http://localhost:3000`.
-
-## Deployment to Vercel
-
-1. Push to GitHub
-
-2. Connect the repository to Vercel
-
-3. Set all environment variables in the Vercel dashboard
-
-4. The `postinstall` script runs `prisma generate` automatically during the build
-
-5. Deploy
-
-```bash
-npx vercel --prod
-```
-
-## Design System
-
-Crossy uses a retro/neobrutalist design language with:
-
-- Hard box-shadows with offset (e.g., `shadow-[6px_6px_0px_#1a1a15]`)
-- Corner dot decorations on cards and containers
-- Border-heavy UI with `border-2 border-foreground`
-- Warm color palette: off-white background (`#FAF6EE`), indigo accent (`#4F46E5`), yellow highlights (`#FFEAA7`)
-- Per-type color coding: blue for movies/TV (`#D2E9F9`), peach for music (`#FAD3A2`), pink for books (`#E8C5C8`), yellow for games (`#FFEAA7`)
-- Custom CSS animations for fade-up effects and horizontal marquees
