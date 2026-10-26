@@ -4,8 +4,9 @@ import { Providers } from "./providers";
 import Navbar from "../components/layout/Navbar";
 
 export const metadata: Metadata = {
-  title: "Crossy - Find your next favorite in any medium",
-  description: "Search movies, shows, music, games, and books across every medium with AI-powered recommendations.",
+  title: "Crossy - Find your next favorite movie, show, game, or book",
+  description:
+    "Discover your next favorite movie, show, game, or book across every medium with AI-powered cross-medium recommendations.",
   keywords: [
     "crossy",
     "media discovery",
@@ -33,8 +34,9 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Crossy - Find your next favorite in any medium",
-    description: "Search movies, shows, music, games, and books across every medium with AI-powered recommendations.",
+    title: "Crossy - Find your next favorite movie, show, game, or book",
+    description:
+      "Discover your next favorite movie, show, game, or book across every medium with AI-powered cross-medium recommendations.",
     url: "https://crossy.app/",
     siteName: "Crossy",
     type: "website",
@@ -45,14 +47,19 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Crossy - Find your next favorite in any medium",
-    description: "Search movies, shows, music, games, and books across every medium with AI-powered recommendations.",
+    title: "Crossy - Find your next favorite movie, show, game, or book",
+    description:
+      "Discover your next favorite movie, show, game, or book across every medium with AI-powered cross-medium recommendations.",
     images: ["/logo.png"],
     creator: "@crossy",
     site: "@crossy",
   },
   alternates: {
     canonical: "https://crossy.app/",
+    languages: {
+      en: "https://crossy.app/",
+      "x-default": "https://crossy.app/",
+    },
   },
   icons: [
     { rel: "icon", type: "image/x-icon", url: "/favicon.ico" },
