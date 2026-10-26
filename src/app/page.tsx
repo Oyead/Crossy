@@ -1,19 +1,14 @@
 import SearchBar from "../components/search/SearchBar";
 import MediaPhrase from "../components/hero/MediaPhrase";
 import ForYouSection from "../components/home/ForYouSection";
+import SocialShare from "../components/home/SocialShare";
+import SocialProfiles from "../components/home/SocialProfiles";
 import Link from "next/link";
 import {
   Clapperboard,
   Music,
   Gamepad2,
   BookOpen,
-  Share2,
-  Facebook,
-  Twitter,
-  Mail,
-  Youtube,
-  Linkedin,
-  Instagram,
 } from "lucide-react";
 
 const FEATURES = [
@@ -67,110 +62,6 @@ const EXTERNAL_SOURCES = [
   { name: "RAWG", url: "https://rawg.io" },
   { name: "Open Library", url: "https://openlibrary.org" },
 ];
-
-function SocialShare() {
-  const shareData = {
-    title: "Crossy - Find your next favorite in any medium",
-    text: "Discover your next favorite movie, show, album, game, or book in any medium with Crossy.",
-    url: "https://crossy.app/",
-  };
-
-  const handleNativeShare = async () => {
-    if (typeof navigator !== "undefined" && "share" in navigator) {
-      try {
-        await (navigator as any).share(shareData);
-      } catch {
-        // ignore
-      }
-    }
-  };
-
-  return (
-    <div className="mx-auto max-w-7xl px-6 py-12 border-y-2 border-foreground bg-white/40 backdrop-blur-sm">
-      <h2 className="text-xl sm:text-2xl font-black text-foreground mb-6 text-center uppercase tracking-wider">
-        Share Crossy
-      </h2>
-      <div className="flex flex-wrap justify-center gap-4">
-        <button
-          onClick={handleNativeShare}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
-          title="Share"
-        >
-          <Share2 className="h-4 w-4" />
-          <span>Share</span>
-        </button>
-        <a
-          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
-          title="Share on Facebook"
-        >
-          <Facebook className="h-4 w-4" />
-          <span>Facebook</span>
-        </a>
-        <a
-          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareData.title)}&url=${encodeURIComponent(shareData.url)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
-          title="Share on X"
-        >
-          <Twitter className="h-4 w-4" />
-          <span>X</span>
-        </a>
-        <a
-          href={`mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(shareData.text + " " + shareData.url)}`}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
-          title="Share via email"
-        >
-          <Mail className="h-4 w-4" />
-          <span>Email</span>
-        </a>
-      </div>
-    </div>
-  );
-}
-
-const SOCIAL_PROFILES = [
-  { name: "YouTube", url: "https://www.youtube.com/@crossy", icon: Youtube },
-  { name: "X", url: "https://x.com/crossy", icon: Twitter },
-  { name: "LinkedIn", url: "https://www.linkedin.com/company/crossy", icon: Linkedin },
-  { name: "Instagram", url: "https://www.instagram.com/crossy", icon: Instagram },
-  { name: "Facebook", url: "https://www.facebook.com/crossy", icon: Facebook },
-];
-
-function SocialProfiles() {
-  return (
-    <div className="mx-auto max-w-7xl px-6 py-12 border-y-2 border-foreground bg-white/40 backdrop-blur-sm">
-      <h2 className="text-xl sm:text-2xl font-black text-foreground mb-6 text-center uppercase tracking-wider">
-        Follow Crossy
-      </h2>
-      <p className="text-center text-muted-foreground font-medium mb-8 max-w-xl mx-auto">
-        Connect with Crossy across social media for the latest cross-medium
-        discovery updates, recommendations, and new feature releases.
-      </p>
-      <div className="flex flex-wrap justify-center gap-4">
-        {SOCIAL_PROFILES.map((profile) => {
-          const Icon = profile.icon;
-          return (
-            <a
-              key={profile.name}
-              href={profile.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 px-5 py-2.5 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm min-h-[44px] min-w-[44px] hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
-              title={`Follow Crossy on ${profile.name}`}
-            >
-              <Icon className="h-5 w-5" />
-              <span>{profile.name}</span>
-            </a>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 const JSON_LD = {
   "@context": "https://schema.org",
