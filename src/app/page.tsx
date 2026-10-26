@@ -1,11 +1,16 @@
 import SearchBar from "../components/search/SearchBar";
 import MediaPhrase from "../components/hero/MediaPhrase";
 import ForYouSection from "../components/home/ForYouSection";
+import Link from "next/link";
 import {
   Clapperboard,
   Music,
   Gamepad2,
   BookOpen,
+  Share2,
+  Facebook,
+  Twitter,
+  Mail,
 } from "lucide-react";
 
 const FEATURES = [
@@ -13,21 +18,33 @@ const FEATURES = [
     icon: Clapperboard,
     label: "Movies & TV",
     bgClass: "bg-[#D2E9F9]",
+    description:
+      "Browse films and series across genres, eras, and streaming platforms to find your next favorite in any medium.",
+    href: "/search?q=movies",
   },
   {
     icon: Music,
     label: "Music",
     bgClass: "bg-[#FAD3A2]",
+    description:
+      "Find albums, artists, and tracks that match your vibe across every medium.",
+    href: "/search?q=music",
   },
   {
     icon: Gamepad2,
     label: "Games",
     bgClass: "bg-[#E8C5C8]",
+    description:
+      "Discover indie gems and AAA titles across platforms and moods.",
+    href: "/search?q=games",
   },
   {
     icon: BookOpen,
     label: "Books",
     bgClass: "bg-[#FFEAA7]",
+    description:
+      "Explore novels, non-fiction, and graphic novels by mood and genre.",
+    href: "/search?q=books",
   },
 ];
 
@@ -41,10 +58,81 @@ const MEDIA_TYPES = [
   "Lo-fi", "True crime", "Ambient", "Retro",
 ];
 
+const EXTERNAL_SOURCES = [
+  { name: "TMDB", url: "https://www.themoviedb.org" },
+  { name: "iTunes", url: "https://www.apple.com/itunes/" },
+  { name: "RAWG", url: "https://rawg.io" },
+  { name: "Open Library", url: "https://openlibrary.org" },
+];
+
+function SocialShare() {
+  const shareData = {
+    title: "Crossy - Find your next favorite in any medium",
+    text: "Discover your next favorite movie, show, album, game, or book in any medium with Crossy.",
+    url: "https://crossy.app/",
+  };
+
+  const handleNativeShare = async () => {
+    if (typeof navigator !== "undefined" && "share" in navigator) {
+      try {
+        await (navigator as any).share(shareData);
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-12 border-y-2 border-foreground bg-white/40 backdrop-blur-sm">
+      <h2 className="text-xl sm:text-2xl font-black text-foreground mb-6 text-center uppercase tracking-wider">
+        Share Crossy
+      </h2>
+      <div className="flex flex-wrap justify-center gap-4">
+        <button
+          onClick={handleNativeShare}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
+          title="Share"
+        >
+          <Share2 className="h-4 w-4" />
+          <span>Share</span>
+        </button>
+        <a
+          href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
+          title="Share on Facebook"
+        >
+          <Facebook className="h-4 w-4" />
+          <span>Facebook</span>
+        </a>
+        <a
+          href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareData.title)}&url=${encodeURIComponent(shareData.url)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
+          title="Share on X"
+        >
+          <Twitter className="h-4 w-4" />
+          <span>X</span>
+        </a>
+        <a
+          href={`mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(shareData.text + " " + shareData.url)}`}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border-2 border-foreground bg-[#FAF6EE] text-foreground font-bold text-sm hover:bg-[#D2E9F9] transition-all shadow-[2px_2px_0px_#1a1a15] active:translate-x-0.5 active:translate-y-0.5"
+          title="Share via email"
+        >
+          <Mail className="h-4 w-4" />
+          <span>Email</span>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   return (
     <section className="relative overflow-hidden min-h-screen px-6 py-12 lg:py-20">
-      
+
       <div className="absolute top-12 left-12 text-[#1a1a15] opacity-20 hidden md:block select-none pointer-events-none">
         <svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 0L14.8 9.2L24 12L14.8 14.8L12 24L9.2 14.8L0 12L9.2 9.2Z"/>
@@ -57,19 +145,19 @@ export default function HomePage() {
       </div>
 
       <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center pt-8 pb-16">
-        
+
         <div className="lg:col-span-7 flex flex-col justify-center text-left relative">
-          
+
           <div className="relative border border-foreground/40 p-6 md:p-8 rounded-xl bg-white/40 backdrop-blur-sm mb-8">
             <span className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-[#FFEAA7] border border-foreground" />
             <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-[#FFEAA7] border border-foreground" />
             <span className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-[#FFEAA7] border border-foreground" />
             <span className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-[#FFEAA7] border border-foreground" />
-            
+
             <p className="text-xs font-bold uppercase tracking-widest text-[#4F46E5] mb-3 flex items-center gap-1.5">
               ✦ Cross-medium discovery
             </p>
-            
+
             <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-foreground leading-[1.1]">
               Find your next favorite, <br />
               <MediaPhrase />
@@ -77,27 +165,44 @@ export default function HomePage() {
           </div>
 
           <p className="max-w-xl text-lg text-muted-foreground font-medium mb-8 pl-2">
-            Enter a movie, show, album, game, or book, or just describe a mood.
-            We&apos;ll discover brilliant matches scattered across different mediums automatically.
+            Find your next favorite movie, show, album, game, or book in any
+            medium. Crossy is a cross-medium discovery engine built to help you
+            discover brilliant matches scattered across movies, TV, music,
+            games, and books. Enter a title, describe a mood, or pick a genre,
+            and we&apos;ll surface your next favorite automatically&mdash;no
+            matter which medium it lives in.
           </p>
 
           <div className="w-full pl-2">
             <SearchBar />
           </div>
-        </div>
 
+          <p className="max-w-xl text-lg text-muted-foreground font-medium mt-8 pl-2">
+            Start searching to find your next favorite in any medium. Build your
+            <Link href="/favorites" className="text-[#4F46E5] underline underline-offset-2 hover:decoration-[#1a1a15]">
+              library
+            </Link>
+            , explore personalized picks, and go pro for unlimited cross-medium
+            discovery.
+          </p>
+
+        </div>
 
       </div>
 
       <div className="mx-auto w-full max-w-7xl pt-8 pb-12">
+        <h2 className="text-3xl sm:text-4xl font-black text-foreground mb-8 text-left uppercase tracking-wider">
+          Discover across every medium
+        </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {FEATURES.map((feature, index) => (
-            <div
+            <Link
               key={feature.label}
-              className={`animate-fade-up border-2 border-foreground p-5 rounded-xl ${feature.bgClass} retro-shadow-md transition-all duration-200 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#1a1a15] cursor-pointer`}
+              href={feature.href}
+              className={`block animate-fade-up border-2 border-foreground p-5 rounded-xl ${feature.bgClass} retro-shadow-md transition-all duration-200 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#1a1a15]`}
               style={{ animationDelay: `${0.1 + index * 0.05}s` }}
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 mb-3">
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-foreground bg-white shadow-[2px_2px_0px_#1a1a15]">
                   <feature.icon className="h-5 w-5 text-foreground" />
                 </span>
@@ -105,12 +210,50 @@ export default function HomePage() {
                   <h3 className="font-bold text-sm text-foreground">{feature.label}</h3>
                 </div>
               </div>
-            </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {feature.description}
+              </p>
+            </Link>
           ))}
         </div>
       </div>
 
+      <div className="mx-auto w-full max-w-7xl pt-8 pb-12">
+        <h2 className="text-3xl sm:text-4xl font-black text-foreground mb-6 text-left uppercase tracking-wider">
+          How Crossy works
+        </h2>
+        <p className="max-w-3xl text-lg text-muted-foreground font-medium leading-relaxed mb-6">
+          Crossy blends AI-powered recommendations with vector search to connect
+          you across every entertainment medium. Whether you are in the mood for
+          a sci-fi film, a cozy game, synthwave music, or a fantasy novel,
+          Crossy surfaces matches you might otherwise miss. Our engine analyzes
+          movies, shows, albums, games, and books together, so your next
+          favorite could come from any medium&mdash;not just the one you started
+          with. Discover cross-medium recommendations that fit your taste, your
+          mood, and your moment.
+        </p>
+        <p className="max-w-3xl text-lg text-muted-foreground font-medium leading-relaxed mb-6">
+          Data is provided by our partners:{" "}
+          {EXTERNAL_SOURCES.map((source, i) => (
+            <span key={source.name} className="inline-block">
+              {i > 0 && <span className="mx-2 text-foreground/40">·</span>}
+              <a
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#4F46E5] underline underline-offset-2 hover:decoration-[#1a1a15]"
+              >
+                {source.name}
+              </a>
+            </span>
+          ))}
+          .
+        </p>
+      </div>
+
       <ForYouSection />
+
+      <SocialShare />
 
       <div className="mask-fade-x animate-marquee flex w-max gap-4 py-6 border-y-2 border-foreground bg-white mt-8 font-bold text-sm text-foreground uppercase tracking-wider">
         {[...MEDIA_TYPES, ...MEDIA_TYPES].map((type, index) => (
