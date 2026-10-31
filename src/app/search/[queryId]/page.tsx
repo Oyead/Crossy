@@ -45,7 +45,7 @@ export default async function Page({ params }: { params: { queryId: string } }) 
 
       <div className="mx-auto max-w-7xl">
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center mb-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch mb-16">
 
           <div className="lg:col-span-7 flex flex-col items-start">
             <div className="relative border-2 border-[#1a1a15] p-6 sm:p-8 rounded-2xl bg-white shadow-[8px_8px_0px_#1a1a15] w-full">
@@ -68,11 +68,33 @@ export default async function Page({ params }: { params: { queryId: string } }) 
                 </span>
               </h1>
             </div>
-
-            <p className="mt-6 text-sm sm:text-base text-[#1a1a15]/70 font-medium max-w-xl pl-2 leading-relaxed">
-              We parsed your exploration seed across film repositories, game catalogs, vinyl databases, and literary texts to formulate an interconnected aesthetic matching grid.
-            </p>
           </div>
+
+          <aside className="lg:col-span-5 relative border-2 border-[#1a1a15] bg-white/70 backdrop-blur-sm p-5 sm:p-6 rounded-2xl shadow-[6px_6px_0px_#1a1a15]">
+            <span className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-[#D2E9F9] border border-[#1a1a15]" />
+            <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-[#D2E9F9] border border-[#1a1a15]" />
+            <span className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-[#D2E9F9] border border-[#1a1a15]" />
+            <span className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-[#D2E9F9] border border-[#1a1a15]" />
+
+            <p className="text-xs font-black uppercase tracking-widest text-[#4F46E5]">
+              ✦ How this grid works
+            </p>
+            <p className="mt-3 text-sm font-medium leading-relaxed text-[#1a1a15]/70">
+              We parse your exploration seed across film repositories, game
+              catalogs, music databases, and literary texts to build an
+              interconnected aesthetic matching grid.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {["Movies", "TV", "Music", "Games", "Books"].map((type) => (
+                <span
+                  key={type}
+                  className="rounded-md border border-[#1a1a15]/40 bg-[#FAF6EE] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#1a1a15]/70"
+                >
+                  {type}
+                </span>
+              ))}
+            </div>
+          </aside>
 
         </div>
 
