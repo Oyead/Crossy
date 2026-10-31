@@ -9,3 +9,4 @@ dist
 tsconfig.tsbuildinfo.env.vercel
 .env.vercel
 tsconfig.tsbuildinfo
+/GO_BACKEND_MIGRATION_PLAN.md
