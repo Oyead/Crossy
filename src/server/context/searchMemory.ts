@@ -17,7 +17,7 @@ export async function recallSimilarQueryMedia(
   query: string
 ): Promise<MediaResult[]> {
   try {
-    const embedding = await embedText(query);
+    const embedding = await embedText(query, "query");
     if (!embedding) return [];
 
     const vectorLiteral = toVectorLiteral(embedding);
@@ -108,7 +108,7 @@ async function persistSearchMemory(
     data: { rawInput: query, mode: "text", userId },
   });
 
-  const embedding = await embedText(query);
+  const embedding = await embedText(query, "query");
   if (embedding && embedding.length === EMBEDDING_DIMS) {
     await prisma.$executeRaw`
       UPDATE "SearchQuery"

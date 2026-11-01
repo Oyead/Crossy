@@ -98,7 +98,7 @@ export async function ensureMediaEmbedding(media: {
     if (await hasEmbedding(media.id)) return;
     const text = buildItemEmbeddingText(media);
     if (!text) return;
-    const embedding = await embedText(text);
+    const embedding = await embedText(text, "document");
     if (!embedding || embedding.length !== EMBEDDING_DIMS) return;
     await prisma.$executeRaw`
       UPDATE "Media"
@@ -178,7 +178,7 @@ export async function recallItemsByVector(
 /** True cross-medium semantic search over item descriptions. */
 export async function recallItemsByQuery(query: string): Promise<MediaResult[]> {
   try {
-    const embedding = await embedText(query);
+    const embedding = await embedText(query, "query");
     if (!embedding || embedding.length !== EMBEDDING_DIMS) return [];
     const matches = await recallItemsByVector(toVectorLiteral(embedding));
     if (matches.length > 0) {

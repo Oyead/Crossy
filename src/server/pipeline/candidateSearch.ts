@@ -85,6 +85,7 @@ export async function generateCandidatesWithAi(query: string): Promise<MediaCand
     const { text, provider } = await generateTextWithFallback({
       prompt: buildMediaCandidatePrompt(query),
       taskLabel: 'candidates',
+      task: 'candidates',
       timeoutMs: 12000,
     });
     console.log(`[search] candidates via ${provider} for "${query}"`);
