@@ -1,17 +1,9 @@
 import { Suspense } from "react";
-import { headers } from "next/headers";
 import ResultsGrid from "@/components/results/ResultsGrid";
 import ResultsSkeleton from "@/components/results/ResultsSkeleton";
 import { getCurrentUserId } from "@/lib/auth";
 import { getUserSearchSignal, type UserSearchSignal } from "@/server/context/userSignal";
-import {
-  processMediaQueryFast,
-  mergeMediaQueryResults,
-  rankMergedResults,
-  fullCacheKey,
-} from "@/server/pipeline/mediaPipeline";
-import { generateCandidatesWithAi } from "@/server/pipeline/candidateSearch";
-import { getCachedJson } from "@/lib/cache";
+import { processMediaQuery } from "@/server/pipeline/mediaPipeline";
 import { createTimings } from "@/lib/trace";
 
 function EmptyState() {
@@ -113,9 +105,6 @@ export default async function Page({ params }: { params: { queryId: string } }) 
 
 async function SearchResults({ query }: { query: string }) {
   const timings = createTimings();
-  const candidatesPromise = generateCandidatesWithAi(query);
-  const initial = await processMediaQueryFast(query, timings);
-  console.log(`[search] "${query}" fast phase: ${timings.toHeader()}`);
 
   let personalization: UserSearchSignal | undefined;
   try {
@@ -127,26 +116,9 @@ async function SearchResults({ query }: { query: string }) {
     console.error("[search] Failed to load user signal:", error);
   }
 
-  if (personalization) {
-    const cachedFull = await getCachedJson<any[]>(fullCacheKey(query, personalization));
-    if (cachedFull && cachedFull.length > 0) {
-      console.log(`[search] "${query}" personalized cache hit`);
-      try { headers().set("Server-Timing", timings.toHeader()); } catch {}
-      return <ResultsGrid results={cachedFull} query={query} />;
-    }
-  }
+  const results = await processMediaQuery(query, timings, personalization);
+  console.log(`[search] "${query}" complete: ${timings.toHeader()}`);
 
-  const { results: merged } = await mergeMediaQueryResults(query, initial, timings, candidatesPromise);
-  console.log(`[search] "${query}" merged phase: ${timings.toHeader()}`);
-
-  if (merged.length === 0) {
-    try { headers().set("Server-Timing", timings.toHeader()); } catch {}
-    return <EmptyState />;
-  }
-
-  const ranked = await rankMergedResults(query, merged, timings, personalization);
-  console.log(`[search] "${query}" ranked phase: ${timings.toHeader()}`);
-
-  try { headers().set("Server-Timing", timings.toHeader()); } catch {}
-  return <ResultsGrid results={ranked} query={query} />;
+  if (results.length === 0) return <EmptyState />;
+  return <ResultsGrid results={results} query={query} />;
 }

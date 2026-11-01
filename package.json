@@ -11,6 +11,9 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "bench:search": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/benchmark-search.mjs",
+    "cache:stats": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/cache-stats.mjs",
+    "embed:reembed": "node --env-file-if-exists=.env.local --env-file-if-exists=.env scripts/reembed.mjs",
     "postinstall": "prisma generate"
   },
   "dependencies": {

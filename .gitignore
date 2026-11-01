@@ -1,5 +1,6 @@
 node_modules
 .next
+.cache
 .env
 .env.local
 .DS_Store
@@ -10,3 +11,4 @@ tsconfig.tsbuildinfo.env.vercel
 .env.vercel
 tsconfig.tsbuildinfo
 /GO_BACKEND_MIGRATION_PLAN.md
+/AI_Quota_Refactoring_Plan.md

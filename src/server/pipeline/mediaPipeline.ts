@@ -19,6 +19,7 @@ import { recallItemsByQuery, backfillUnembeddedMediaAsync } from '../context/ite
 import { recallCoClickedItems } from './collaborative';
 import { normalizeGenres } from '../integrations/tagMap';
 import type { UserSearchSignal } from '../context/userSignal';
+import { recordCache } from '../../lib/cacheMetrics';
 
 function cacheKey(query: string): string {
   return `search:${normalizeQuery(query)}`;
@@ -160,7 +161,11 @@ export async function rankMergedResults(
   const cachedFullPromiseResolved =
     cachedFullPromise ?? getCachedJson(resultKey);
   const cachedFull = await timed(timings, 'cache:full', () => cachedFullPromiseResolved);
-  if (cachedFull) return diversifyRanked(cachedFull);
+  if (cachedFull) {
+    if (!cachedFullPromise) recordCache('hit', 'ranked');
+    return diversifyRanked(cachedFull);
+  }
+  if (!cachedFullPromise) recordCache('miss', 'ranked');
 
   const results = await timed(timings, 'gemini:rank', () =>
     rankWithAi(query, merged, personalization)
@@ -193,30 +198,24 @@ export async function rankMergedResults(
   return results;
 }
 
-export async function processMediaQueryEnhanced(
-  query: string,
-  baseResults: any[],
-  timings?: Timings,
-  candidatesPromise?: Promise<MediaCandidate[]>,
-  personalization?: UserSearchSignal
-): Promise<any[]> {
-  const cachedFullPromise = getCachedJson(fullCacheKey(query, personalization));
-  const cachedFull = await timed(timings, 'cache:full', () => cachedFullPromise);
-  if (cachedFull) return diversifyRanked(cachedFull);
-
-  const { results: merged } = await mergeMediaQueryResults(query, baseResults, timings, candidatesPromise);
-  if (merged.length === 0) return [];
-  return rankMergedResults(query, merged, timings, personalization, cachedFullPromise);
-}
-
 export async function processMediaQuery(
   query: string,
   timings?: Timings,
   personalization?: UserSearchSignal
 ): Promise<any[]> {
+  const cachedFullPromise = getCachedJson<any[]>(fullCacheKey(query, personalization));
+  const cachedFull = await timed(timings, 'cache:full', () => cachedFullPromise);
+  if (cachedFull && cachedFull.length > 0) {
+    recordCache('hit', 'ranked');
+    return diversifyRanked(cachedFull);
+  }
+  recordCache('miss', 'ranked');
+
   const candidatesPromise = generateCandidatesWithAi(query);
   const fast = await processMediaQueryFast(query, timings);
-  return processMediaQueryEnhanced(query, fast, timings, candidatesPromise, personalization);
+  const { results: merged } = await mergeMediaQueryResults(query, fast, timings, candidatesPromise);
+  if (merged.length === 0) return [];
+  return rankMergedResults(query, merged, timings, personalization, Promise.resolve(null));
 }
 
 async function generateAndHydrateCandidates(
@@ -266,6 +265,7 @@ async function rankWithAi(
     const { text: aiResponse, provider } = await generateTextWithFallback({
       prompt: recommendationPrompt,
       taskLabel: 'rank',
+      task: 'rank',
       timeoutMs: 15000,
     });
     console.log(`[search] rank via ${provider} for "${query}"`);
