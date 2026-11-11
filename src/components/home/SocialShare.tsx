@@ -5,7 +5,7 @@ import { Share2, Facebook, Twitter, Mail } from "lucide-react";
 const shareData = {
   title: "Crossy - Find your next favorite in any medium",
   text: "Discover your next favorite movie, show, album, game, or book in any medium with Crossy.",
-  url: "https://crossy.app/",
+  url: "https://crossy.site/",
 };
 
 export default function SocialShare() {

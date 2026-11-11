@@ -133,10 +133,10 @@ export default function SubscriptionPage() {
           <p className="text-sm font-medium text-[#1a1a15]/50">
             Have questions? Reach out at{" "}
             <a
-              href="mailto:support@crossy.app"
+              href="mailto:support@crossy.site"
               className="font-bold text-[#4F46E5] underline underline-offset-4 hover:text-[#1a1a15] transition-colors"
             >
-              support@crossy.app
+              support@crossy.site
             </a>
           </p>
         </div>

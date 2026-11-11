@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     title: "Crossy - Find your next favorite movie, show, game, or book",
     description:
       "Discover your next favorite movie, show, game, or book across every medium with AI-powered cross-medium recommendations.",
-    url: "https://crossy.app/",
+    url: "https://crossy.site/",
     siteName: "Crossy",
     type: "website",
     locale: "en_US",
@@ -55,10 +55,10 @@ export const metadata: Metadata = {
     site: "@crossy",
   },
   alternates: {
-    canonical: "https://crossy.app/",
+    canonical: "https://crossy.site/",
     languages: {
-      en: "https://crossy.app/",
-      "x-default": "https://crossy.app/",
+      en: "https://crossy.site/",
+      "x-default": "https://crossy.site/",
     },
   },
   icons: [

@@ -3,7 +3,6 @@ import MediaPhrase from "../components/hero/MediaPhrase";
 import ForYouSection from "../components/home/ForYouSection";
 import SocialShare from "../components/home/SocialShare";
 import SocialProfiles from "../components/home/SocialProfiles";
-import Link from "next/link";
 import {
   Clapperboard,
   Music,
@@ -17,32 +16,28 @@ const FEATURES = [
     label: "Movies & TV",
     bgClass: "bg-[#D2E9F9]",
     description:
-      "Browse films and series across genres, eras, and streaming platforms to find your next favorite in any medium.",
-    href: "#",
+      "Films and series across genres, eras, and streaming platforms.",
   },
   {
     icon: Music,
     label: "Music",
     bgClass: "bg-[#FAD3A2]",
     description:
-      "Find albums, artists, and tracks that match your vibe across every medium.",
-    href: "#",
+      "Albums, artists, and tracks that match your vibe.",
   },
   {
     icon: Gamepad2,
     label: "Games",
     bgClass: "bg-[#E8C5C8]",
     description:
-      "Discover indie gems and AAA titles across platforms and moods.",
-    href: "#",
+      "Indie gems and AAA titles across platforms and moods.",
   },
   {
     icon: BookOpen,
     label: "Books",
     bgClass: "bg-[#FFEAA7]",
     description:
-      "Explore novels, non-fiction, and graphic novels by mood and genre.",
-    href: "#",
+      "Novels, non-fiction, and graphic novels by mood and genre.",
   },
 ];
 
@@ -68,22 +63,22 @@ const JSON_LD = {
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://crossy.app/#organization",
+      "@id": "https://crossy.site/#organization",
       "name": "Crossy",
-      "url": "https://crossy.app/",
-      "logo": "https://crossy.app/logo.png",
+      "url": "https://crossy.site/",
+      "logo": "https://crossy.site/logo.png",
     },
     {
       "@type": "WebSite",
-      "@id": "https://crossy.app/#website",
-      "url": "https://crossy.app/",
+      "@id": "https://crossy.site/#website",
+      "url": "https://crossy.site/",
       "name": "Crossy",
       "description":
         "Discover your next favorite movie, show, game, or book across every medium with AI-powered cross-medium recommendations.",
-      "publisher": { "@id": "https://crossy.app/#organization" },
+      "publisher": { "@id": "https://crossy.site/#organization" },
       "potentialAction": {
         "@type": "SearchAction",
-        "target": "https://crossy.app/search?q={search_term_string}",
+        "target": "https://crossy.site/search?q={search_term_string}",
         "query-input": "required name=search_term_string",
       },
     },
@@ -147,12 +142,8 @@ export default function HomePage() {
             matches from every medium&mdash;not just the one you started with.
           </p>
           <p className="mt-4 border-t-2 border-dashed border-foreground/20 pt-3 text-xs font-medium leading-relaxed text-muted-foreground">
-            Start searching, build your{" "}
-            <Link href="/favorites" className="text-[#4F46E5] underline underline-offset-2 hover:decoration-[#1a1a15]">
-              library
-            </Link>
-            , explore personalized picks, and go pro for unlimited cross-medium
-            discovery.
+            Start with a title, a mood, or a genre in the search box&mdash;Crossy
+            takes it from there.
           </p>
         </aside>
       </div>
@@ -163,10 +154,9 @@ export default function HomePage() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {FEATURES.map((feature, index) => (
-            <Link
+            <div
               key={feature.label}
-              href={feature.href}
-              className={`block animate-fade-up border-2 border-foreground p-5 rounded-xl ${feature.bgClass} retro-shadow-md transition-all duration-200 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-[2px_2px_0px_#1a1a15]`}
+              className={`animate-fade-up border-2 border-foreground p-5 rounded-xl ${feature.bgClass} retro-shadow-md`}
               style={{ animationDelay: `${0.1 + index * 0.05}s` }}
             >
               <div className="flex items-center gap-4 mb-3">
@@ -180,7 +170,7 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {feature.description}
               </p>
-            </Link>
+            </div>
           ))}
         </div>
       </div>
@@ -195,18 +185,34 @@ export default function HomePage() {
               Taste, mood, and moment
             </p>
           </div>
-          <div className="lg:col-span-8 grid gap-4 sm:grid-cols-2">
+          <div className="lg:col-span-8">
             <p className="text-sm sm:text-base text-muted-foreground font-medium leading-relaxed">
-              Crossy blends AI-powered recommendations with vector search to
-              connect you across every entertainment medium. Whether you want a
-              sci-fi film, a cozy game, synthwave music, or a fantasy novel, our
-              engine analyzes movies, shows, albums, games, and books together.
+              Crossy uses AI embeddings and vector search to connect metadata
+              across movies, shows, albums, games, and books, so a single seed
+              surfaces matches in every medium. Your next favorite might come
+              from a medium you didn&apos;t start in.
             </p>
-            <p className="text-sm sm:text-base text-muted-foreground font-medium leading-relaxed">
-              Your next favorite can come from any medium&mdash;not just the one
-              you started with. Discover cross-medium recommendations that fit
-              your taste, your mood, and your moment.
-            </p>
+            <div className="mt-6">
+              <p className="text-xs font-black uppercase tracking-widest text-foreground/50">
+                For example
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm font-bold">
+                <span className="rounded-lg border-2 border-foreground bg-[#FFEAA7] px-3 py-1.5 shadow-[2px_2px_0px_#1a1a15]">
+                  Dune
+                </span>
+                <span className="text-foreground/40">&rarr;</span>
+                <span className="rounded-lg border border-foreground/40 bg-muted/40 px-3 py-1.5">
+                  Hyperion <span className="text-muted-foreground">· book</span>
+                </span>
+                <span className="rounded-lg border border-foreground/40 bg-muted/40 px-3 py-1.5">
+                  Blade Runner 2049 OST{" "}
+                  <span className="text-muted-foreground">· music</span>
+                </span>
+                <span className="rounded-lg border border-foreground/40 bg-muted/40 px-3 py-1.5">
+                  Hellblade <span className="text-muted-foreground">· game</span>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

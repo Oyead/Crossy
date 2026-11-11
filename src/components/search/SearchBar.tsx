@@ -177,7 +177,7 @@ export default function SearchBar() {
               setShowSuggestions(true);
             }
           }}
-          placeholder="Try 'inception', 'cozy games', 'jazz'..."
+          placeholder="Try 'Inception', 'cozy rainy day', or 'sci-fi'..."
           role="combobox"
           aria-expanded={showDropdown}
           aria-autocomplete="list"
