@@ -7,7 +7,7 @@ import { guardedProviderSearch } from './circuitBreaker';
 import { getCachedJson, setCachedJson, normalizeQuery, CACHE_VERSION } from '../../lib/cache';
 
 const CONCURRENCY = 10;
-const MAX_HYDRATE_CANDIDATES = 10;
+const MAX_HYDRATE_CANDIDATES = 15;
 const CANDIDATE_CACHE_TTL = 15 * 60;
 
 export function normalizeTitle(title: string): string {
@@ -94,7 +94,7 @@ export async function generateCandidatesWithAi(
       prompt: buildMediaCandidatePrompt(query),
       taskLabel: 'candidates',
       task: 'candidates',
-      timeoutMs: 12000,
+      timeoutMs: 6000,
     });
     console.log(`[search] candidates via ${provider} for "${query}"`);
 
@@ -124,8 +124,7 @@ async function hydrateCandidate(
     (r) =>
       normalizeTitle(r.title) === normalizedTitle &&
       r.provider.toLowerCase() === candidate.provider.toLowerCase() &&
-      r.type === candidate.type &&
-      r.coverImage
+      r.type === candidate.type
   );
   if (existing) {
     return {
@@ -143,9 +142,18 @@ async function hydrateCandidate(
     if (!results || results.length === 0) return null;
 
     const exact = results.find((r) => normalizeTitle(r.title) === normalizedTitle);
-    const best = exact ?? results[0];
+    const best =
+      exact ??
+      results.find((r) => {
+        const candidateTitle = normalizeTitle(r.title);
+        return (
+          candidateTitle.length > 0 &&
+          (candidateTitle.includes(normalizedTitle) ||
+            normalizedTitle.includes(candidateTitle))
+        );
+      });
 
-    if (!best?.coverImage) return null;
+    if (!best) return null;
 
     return {
       ...best,

@@ -14,6 +14,7 @@ interface MediaCardProps {
   sourceQuery?: string;
   reason?: string;
   position?: number;
+  metadata?: Record<string, unknown>;
   favorited: boolean;
   onToggleFavorite: (mediaData: {
     id: string;
@@ -22,6 +23,7 @@ interface MediaCardProps {
     mediaType: string;
     sourceApi: string;
     sourceQuery?: string;
+    metadata?: Record<string, unknown>;
   }) => Promise<void>;
 }
 
@@ -35,6 +37,7 @@ export default function MediaCard({
   sourceQuery,
   reason,
   position,
+  metadata,
   favorited,
   onToggleFavorite
 }: MediaCardProps) {
@@ -58,7 +61,8 @@ export default function MediaCard({
         title,
         posterUrl: coverImage,
         mediaType: type,
-        sourceApi: provider
+        sourceApi: provider,
+        metadata
       });
     } catch (error) {
       console.error("Error toggling favorite:", error);

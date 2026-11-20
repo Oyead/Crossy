@@ -9,6 +9,7 @@ export const EMBEDDING_PROVIDER = (
 export const EMBEDDING_MODEL =
   process.env.EMBEDDING_MODEL || "gemini-embedding-001";
 export const EMBEDDING_DIMS = positiveInt(process.env.EMBEDDING_DIMS, 1536);
+export const EMBEDDING_VERSION = "v2";
 export const EMBED_QUOTA_COOLDOWN_MS = positiveInt(
   process.env.EMBED_QUOTA_COOLDOWN_MS,
   10 * 60 * 1000

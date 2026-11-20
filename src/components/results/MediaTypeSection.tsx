@@ -13,6 +13,7 @@ interface MediaTypeSectionProps {
     provider: string;
     reason?: string;
     position?: number;
+    metadata?: Record<string, unknown>;
   }>;
   favoritedIds?: Set<string>;
   sourceQuery?: string;
@@ -23,6 +24,7 @@ interface MediaTypeSectionProps {
     mediaType: string;
     sourceApi: string;
     sourceQuery?: string;
+    metadata?: Record<string, unknown>;
   }) => Promise<void>;
 }
 
@@ -52,6 +54,7 @@ export default function MediaTypeSection({
             provider={item.provider}
             reason={item.reason}
             position={item.position}
+            metadata={item.metadata}
             favorited={favoritedIds?.has(item.id) ?? false}
             onToggleFavorite={async (mediaData) => {
               if (onToggleFavorite) {

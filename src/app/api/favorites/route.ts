@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@prisma/client"
 import { getCurrentUserId } from "@/lib/auth"
 import prisma from "@/server/db/prisma"
 import { ensureMediaEmbedding } from "@/server/context/itemVectors"
@@ -29,7 +30,11 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { externalId, title, posterUrl, mediaType, sourceApi, sourceQuery } = body
+    const { externalId, title, posterUrl, mediaType, sourceApi, sourceQuery, metadata } = body
+    const incomingMetadata =
+      metadata && typeof metadata === "object" && !Array.isArray(metadata)
+        ? (metadata as Prisma.InputJsonObject)
+        : {}
 
     if (!externalId || !mediaType || !sourceApi) {
       return NextResponse.json(
@@ -48,7 +53,11 @@ export async function POST(request: Request) {
       },
       update: {
         title,
-        posterUrl: posterUrl ?? null
+        posterUrl: posterUrl ?? null,
+        metadata:
+          Object.keys(incomingMetadata).length > 0
+            ? incomingMetadata
+            : undefined
       },
       create: {
         mediaType,
@@ -56,7 +65,7 @@ export async function POST(request: Request) {
         title,
         posterUrl: posterUrl ?? null,
         sourceApi,
-        metadata: {}
+        metadata: incomingMetadata
       }
     })
 

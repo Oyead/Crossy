@@ -4,6 +4,56 @@ import { fetchWithTimeout } from '../fetchWithTimeout';
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
+const MOVIE_GENRES: Record<number, string> = {
+  28: 'Action',
+  12: 'Adventure',
+  16: 'Animation',
+  35: 'Comedy',
+  80: 'Crime',
+  99: 'Documentary',
+  18: 'Drama',
+  10751: 'Family',
+  14: 'Fantasy',
+  36: 'History',
+  27: 'Horror',
+  10402: 'Music',
+  9648: 'Mystery',
+  10749: 'Romance',
+  878: 'Science Fiction',
+  10770: 'TV Movie',
+  53: 'Thriller',
+  10752: 'War',
+  37: 'Western',
+};
+
+const TV_GENRES: Record<number, string> = {
+  10759: 'Action & Adventure',
+  16: 'Animation',
+  35: 'Comedy',
+  80: 'Crime',
+  99: 'Documentary',
+  18: 'Drama',
+  10751: 'Family',
+  10762: 'Kids',
+  9648: 'Mystery',
+  10763: 'News',
+  10764: 'Reality',
+  10765: 'Sci-Fi & Fantasy',
+  10766: 'Soap',
+  10767: 'Talk',
+  10768: 'War & Politics',
+  37: 'Western',
+};
+
+function genreNames(ids: unknown, mediaType: string): string[] | undefined {
+  if (!Array.isArray(ids)) return undefined;
+  const map = mediaType === 'tv' ? TV_GENRES : MOVIE_GENRES;
+  const names = ids
+    .map((id) => map[Number(id)])
+    .filter((name): name is string => Boolean(name));
+  return names.length > 0 ? names : undefined;
+}
+
 export class TmdbProvider implements MediaSearchProvider {
   async search(query: string): Promise<MediaResult[]> {
     if (!TMDB_API_KEY) return [];
@@ -84,7 +134,7 @@ export class TmdbProvider implements MediaSearchProvider {
       rating: item.vote_average ? Number(item.vote_average) : undefined,
       genres: Array.isArray(item.genres)
         ? item.genres.map((g: any) => (typeof g === 'string' ? g : g?.name)).filter(Boolean)
-        : undefined,
+        : genreNames(item.genre_ids, mediaType),
       provider: 'tmdb',
       type: mediaType,
     };

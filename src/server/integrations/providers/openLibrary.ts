@@ -39,7 +39,7 @@ async function fetchAuthorNames(authorRefs: any[]): Promise<string[]> {
 export class OpenLibraryProvider implements MediaSearchProvider {
   async search(query: string): Promise<MediaResult[]> {
     try {
-      const url = `${OPEN_LIBRARY_URL}/search.json?q=${encodeURIComponent(query)}&limit=10&fields=key,title,author_name,first_publish_year,cover_i,subtitle`;
+      const url = `${OPEN_LIBRARY_URL}/search.json?q=${encodeURIComponent(query)}&limit=10&fields=key,title,author_name,first_publish_year,cover_i,subtitle,subject`;
       const response = await fetchWithTimeout(url, {}, 5000);
       if (!response.ok) {
         throw new Error(`Open Library search failed: ${response.status}`);
@@ -92,6 +92,7 @@ export class OpenLibraryProvider implements MediaSearchProvider {
       provider: 'openLibrary',
       type: 'book',
       creators: Array.isArray(doc.author_name) ? doc.author_name : [],
+      genres: Array.isArray(doc.subject) ? doc.subject.slice(0, 8) : [],
       externalUrl: `${OPEN_LIBRARY_URL}${doc.key}`,
     };
   }

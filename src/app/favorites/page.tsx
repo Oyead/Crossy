@@ -56,6 +56,7 @@ export default function FavoritesPage() {
     mediaType: string;
     sourceApi: string;
     sourceQuery?: string;
+    metadata?: Record<string, unknown>;
   }) => {
     if (status !== "authenticated") {
       router.push("/login");

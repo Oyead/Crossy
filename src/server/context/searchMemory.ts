@@ -2,6 +2,7 @@ import prisma from "@/server/db/prisma";
 import { Prisma } from "@prisma/client";
 import {
   EMBEDDING_DIMS,
+  EMBEDDING_VERSION,
   embedText,
   toVectorLiteral,
 } from "./embed";
@@ -10,8 +11,8 @@ import { hasEmbeddedQueries } from "./embeddingAvailability";
 import { normalizeGenres } from "../integrations/tagMap";
 import type { MediaResult } from "../integrations/MediaSearchProvider";
 
-const SIMILARITY_DISTANCE_THRESHOLD = 0.9;
-const RECALL_LIMIT = 5;
+const SIMILARITY_DISTANCE_THRESHOLD = 0.8;
+const RECALL_LIMIT = 3;
 const PERSIST_RESULT_LIMIT = 20;
 
 export async function recallSimilarQueryMedia(
@@ -35,10 +36,11 @@ export async function recallSimilarQueryMedia(
         distance: number;
       }>
     >`
-      WITH similar AS (
+      WITH near_queries AS (
         SELECT id, embedding <=> ${vectorLiteral}::vector AS distance
         FROM "SearchQuery"
         WHERE embedding IS NOT NULL
+          AND "embeddingVersion" = ${EMBEDDING_VERSION}
           AND LOWER("rawInput") <> LOWER(${query})
         ORDER BY embedding <=> ${vectorLiteral}::vector
         LIMIT ${RECALL_LIMIT}
@@ -51,12 +53,12 @@ export async function recallSimilarQueryMedia(
         m."sourceApi",
         m."posterUrl",
         m.metadata,
-        similar.distance
-      FROM similar
-      JOIN "Recommendation" r ON r."queryId" = similar.id
+        near_queries.distance
+      FROM near_queries
+      JOIN "Recommendation" r ON r."queryId" = near_queries.id
       JOIN "Media" m ON m.id = r."mediaId"
-      WHERE similar.distance <= ${SIMILARITY_DISTANCE_THRESHOLD}
-      ORDER BY similar.distance ASC, r."createdAt" DESC
+      WHERE near_queries.distance <= ${SIMILARITY_DISTANCE_THRESHOLD}
+      ORDER BY near_queries.distance ASC, r."createdAt" DESC
       LIMIT 40
     `;
 
@@ -129,7 +131,8 @@ async function persistSearchMemory(
   if (embedding && embedding.length === EMBEDDING_DIMS) {
     await prisma.$executeRaw`
       UPDATE "SearchQuery"
-      SET embedding = ${toVectorLiteral(embedding)}::vector
+      SET embedding = ${toVectorLiteral(embedding)}::vector,
+          "embeddingVersion" = ${EMBEDDING_VERSION}
       WHERE id = ${searchQuery.id}
     `;
   }

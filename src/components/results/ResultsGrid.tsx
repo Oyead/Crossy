@@ -18,6 +18,10 @@ interface ResultsGridProps {
     provider: string;
     type: string;
     reason?: string;
+    genres?: string[];
+    creators?: string[];
+    rating?: number;
+    releaseDate?: string;
   }>;
 }
 
@@ -97,13 +101,14 @@ export default function ResultsGrid({ query, results }: ResultsGridProps) {
   );
 
   const handleToggleFavorite = async (mediaData: {
-  id: string;
-  title: string;
-  posterUrl?: string;
-  mediaType: string;
-  sourceApi: string;
-  sourceQuery?: string;
-}) => {
+    id: string;
+    title: string;
+    posterUrl?: string;
+    mediaType: string;
+    sourceApi: string;
+    sourceQuery?: string;
+    metadata?: Record<string, unknown>;
+  }) => {
     if (status !== "authenticated") {
       setShowLoginPrompt(true);
       return;
@@ -206,6 +211,13 @@ export default function ResultsGrid({ query, results }: ResultsGridProps) {
                   coverImage: item.coverImage,
                   provider: item.provider,
                   reason: item.reason,
+                  metadata: {
+                    overview: item.description,
+                    genres: item.genres,
+                    creators: item.creators,
+                    rating: item.rating,
+                    releaseDate: item.releaseDate,
+                  },
                 }))}
                 favoritedIds={favoritedIds}
                 onToggleFavorite={handleToggleFavorite}

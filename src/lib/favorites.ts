@@ -5,6 +5,7 @@ export async function toggleFavorite(mediaData: {
   mediaType: string;
   sourceApi: string;
   sourceQuery?: string;
+  metadata?: Record<string, unknown>;
 }): Promise<boolean> {
   try {
     const response = await fetch(`/api/favorites`, {
@@ -19,6 +20,7 @@ export async function toggleFavorite(mediaData: {
         mediaType: mediaData.mediaType,
         sourceApi: mediaData.sourceApi,
         sourceQuery: mediaData.sourceQuery,
+        metadata: mediaData.metadata,
       }),
     });
 
@@ -64,6 +66,7 @@ export interface FavoriteItem {
   mediaType: string;
   sourceApi: string;
   sourceQuery?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export async function getFavoriteItems(): Promise<FavoriteItem[]> {
@@ -86,5 +89,9 @@ export async function getFavoriteItems(): Promise<FavoriteItem[]> {
     mediaType: fav.media?.mediaType ?? "",
     sourceApi: fav.media?.sourceApi ?? "",
     sourceQuery: fav.sourceQuery ?? undefined,
+    metadata:
+      fav.media?.metadata && typeof fav.media.metadata === 'object'
+        ? (fav.media.metadata as Record<string, unknown>)
+        : undefined,
   }));
 }

@@ -3,14 +3,15 @@ import { Prisma } from "@prisma/client";
 import type { MediaResult } from "../integrations/MediaSearchProvider";
 import {
   EMBEDDING_DIMS,
+  EMBEDDING_VERSION,
   embedText,
   parseVectorLiteral,
   toVectorLiteral,
 } from "./embed";
 import { hasEmbeddedMedia } from "./embeddingAvailability";
 
-const ITEM_RECALL_LIMIT = 8;
-const ITEM_SIMILARITY_DISTANCE_THRESHOLD = 0.85;
+const ITEM_RECALL_LIMIT = 16;
+const ITEM_SIMILARITY_DISTANCE_THRESHOLD = 0.82;
 const TASTE_FAVORITE_LIMIT = 50;
 const BACKFILL_BATCH_SIZE = 10;
 const BACKFILL_THROTTLE_MS = 5 * 60 * 1000;
@@ -44,8 +45,19 @@ export function mediaRowToResult(m: EmbeddedMediaRow): MediaResult {
           : undefined,
     rating: typeof md.rating === "number" ? md.rating : undefined,
     releaseDate: typeof md.releaseDate === "string" ? md.releaseDate : undefined,
-    genres: Array.isArray(md.genres) ? (md.genres as string[]) : undefined,
+    genres: Array.isArray(md.genres)
+      ? (md.genres as string[])
+      : Array.isArray(md.subjects)
+        ? (md.subjects as string[])
+        : Array.isArray(md.tags)
+          ? (md.tags as string[])
+          : undefined,
   };
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string" && Boolean(entry.trim()));
 }
 
 export function buildItemEmbeddingText(media: {
@@ -57,17 +69,31 @@ export function buildItemEmbeddingText(media: {
   const overview =
     typeof md.overview === "string" && md.overview.trim()
       ? md.overview
-      : typeof md.description === "string"
+      : typeof md.description === "string" && md.description.trim()
         ? md.description
         : "";
-  const genres = Array.isArray(md.genres) ? md.genres.filter((g) => typeof g === "string") : [];
-  const creators = Array.isArray(md.creators) ? md.creators.filter((c) => typeof c === "string") : [];
+  const genres =
+    stringArray(md.genres).length > 0
+      ? stringArray(md.genres)
+      : stringArray(md.subjects).length > 0
+        ? stringArray(md.subjects)
+        : stringArray(md.tags);
+  const themes =
+    stringArray(md.themes).length > 0
+      ? stringArray(md.themes)
+      : stringArray(md.moods);
+  const creators = stringArray(md.creators);
+
+  if (!overview && genres.length === 0 && themes.length === 0 && creators.length === 0) {
+    return "";
+  }
+
   return [
-    media.title,
-    media.mediaType !== "unknown" ? `(${media.mediaType})` : "",
-    overview,
-    genres.length > 0 ? `Genres: ${genres.join(", ")}` : "",
-    creators.length > 0 ? `By ${creators.join(", ")}` : "",
+    overview ? `Description: ${overview}` : "",
+    genres.length > 0 ? `Genres and themes: ${genres.join(", ")}` : "",
+    themes.length > 0 ? `Moods and themes: ${themes.join(", ")}` : "",
+    creators.length > 0 ? `Creators: ${creators.join(", ")}` : "",
+    media.mediaType !== "unknown" ? `Medium: ${media.mediaType}` : "",
   ]
     .filter(Boolean)
     .join(". ")
@@ -77,7 +103,11 @@ export function buildItemEmbeddingText(media: {
 
 async function hasEmbedding(mediaId: string): Promise<boolean> {
   const rows = await prisma.$queryRaw<Array<{ ok: number }>>`
-    SELECT 1 AS ok FROM "Media" WHERE id = ${mediaId} AND embedding IS NOT NULL LIMIT 1
+    SELECT 1 AS ok FROM "Media"
+    WHERE id = ${mediaId}
+      AND embedding IS NOT NULL
+      AND "embeddingVersion" = ${EMBEDDING_VERSION}
+    LIMIT 1
   `;
   return rows.length > 0;
 }
@@ -103,8 +133,9 @@ export async function ensureMediaEmbedding(media: {
     if (!embedding || embedding.length !== EMBEDDING_DIMS) return;
     await prisma.$executeRaw`
       UPDATE "Media"
-      SET embedding = ${toVectorLiteral(embedding)}::vector
-      WHERE id = ${media.id} AND embedding IS NULL
+      SET embedding = ${toVectorLiteral(embedding)}::vector,
+          "embeddingVersion" = ${EMBEDDING_VERSION}
+      WHERE id = ${media.id}
     `;
   } catch (error) {
     console.error("[itemVectors] ensureMediaEmbedding failed:", error);
@@ -127,7 +158,7 @@ export function backfillUnembeddedMediaAsync(): void {
       const rows = await prisma.$queryRaw<EmbeddedMediaRow[]>`
         SELECT id, "externalId", title, "mediaType", "sourceApi", "posterUrl", metadata
         FROM "Media"
-        WHERE embedding IS NULL
+        WHERE embedding IS NULL OR "embeddingVersion" IS DISTINCT FROM ${EMBEDDING_VERSION}
         ORDER BY "updatedAt" DESC
         LIMIT ${BACKFILL_BATCH_SIZE}
       `;
@@ -162,6 +193,7 @@ export async function recallItemsByVector(
            embedding <=> ${vectorLiteral}::vector AS distance
     FROM "Media"
     WHERE embedding IS NOT NULL
+      AND "embeddingVersion" = ${EMBEDDING_VERSION}
     ORDER BY embedding <=> ${vectorLiteral}::vector
     LIMIT ${limit * 3}
   `;
@@ -240,7 +272,9 @@ export async function getTasteProfile(userId: string): Promise<TasteProfile> {
     const rows = await prisma.$queryRaw<Array<{ id: string; embedding: string }>>`
       SELECT id, embedding::text AS embedding
       FROM "Media"
-      WHERE id IN (${Prisma.join(mediaIds)}) AND embedding IS NOT NULL
+      WHERE id IN (${Prisma.join(mediaIds)})
+        AND embedding IS NOT NULL
+        AND "embeddingVersion" = ${EMBEDDING_VERSION}
     `;
     for (const row of rows) {
       vectors.push(parseVectorLiteral(row.embedding));

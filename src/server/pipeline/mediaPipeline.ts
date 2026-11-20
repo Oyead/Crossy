@@ -31,8 +31,8 @@ export function fullCacheKey(query: string, personalization?: UserSearchSignal):
     : cacheKey(query);
 }
 
-const SEARCH_DEADLINE_MS = 8_000;
-const RANK_BUDGET_MS = 2_500;
+const SEARCH_DEADLINE_MS = 10_000;
+const RANK_BUDGET_MS = 4_500;
 
 function withDeadline<T>(
   promise: Promise<T>,
@@ -108,13 +108,14 @@ function semanticOrder(results: any[]): any[] {
 }
 
 function buildSemanticFallback(semanticResults: any[], providerResults: any[]): any[] {
-  return dedupeMediaResults([...semanticResults, ...providerResults]);
+  const semantic = dedupeMediaResults(semanticResults);
+  return semantic.length > 0 ? semantic : dedupeMediaResults(providerResults);
 }
 
 function compactDescription(text: any): string {
   const t = String(text ?? '').trim().replace(/\s+/g, ' ');
-  if (t.length <= 180) return t;
-  const cut = t.slice(0, 180);
+  if (t.length <= 320) return t;
+  const cut = t.slice(0, 320);
   const lastEnd = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'));
   return lastEnd > 60 ? cut.slice(0, lastEnd + 1) : cut;
 }
@@ -158,7 +159,7 @@ export async function mergeMediaQueryResults(
   query: string,
   baseResults: any[],
   timings?: Timings,
-  candidatesPromise?: Promise<MediaCandidate[]>,
+  aiResultsPromise?: Promise<any[]>,
   semanticPromise?: Promise<[any[], any[]]>
 ): Promise<{ results: any[] }> {
   const semanticRecall =
@@ -169,9 +170,10 @@ export async function mergeMediaQueryResults(
     ]);
 
   const [aiResults, [memoryResults, vectorResults], cfResults] = await Promise.all([
-    timed(timings, 'gemini:candidates', () =>
-      generateAndHydrateCandidates(query, candidatesPromise, baseResults)
-    ),
+    aiResultsPromise ??
+      timed(timings, 'gemini:candidates', () =>
+        generateAndHydrateCandidates(query, undefined, baseResults)
+      ),
     semanticRecall,
     timed(timings, 'cf:recall', () =>
       recallCoClickedItems(
@@ -182,21 +184,15 @@ export async function mergeMediaQueryResults(
     ),
   ]);
 
-  const merged = dedupeMediaResults([
-    ...aiResults,
-    ...vectorResults,
-    ...cfResults,
-    ...memoryResults,
-    ...baseResults,
-  ]);
-
-  if (merged.length > 0) {
-    await timed(timings, 'cache:write', () =>
-      setCachedJson(`fast:${cacheKey(query)}`, merged, PROVIDER_CACHE_TTL)
-    );
-  }
-
-  return { results: merged };
+  return {
+    results: dedupeMediaResults([
+      ...aiResults,
+      ...vectorResults,
+      ...cfResults,
+      ...memoryResults,
+      ...baseResults,
+    ]),
+  };
 }
 
 export async function rankMergedResults(
@@ -229,11 +225,11 @@ export async function rankMergedResults(
     rankWithAi(query, merged, personalization)
   ).then(
     (results) => {
-      const ranked = results.length > 0 && results.some((r) => typeof r.confidence === 'number');
-      if (ranked) {
-        void setCachedJsonAndDelete(resultKey, results, CACHE_TTL, `fast:${cacheKey(query)}`);
+      const rankedResults = results.filter((r) => typeof r.confidence === 'number');
+      if (rankedResults.length > 0) {
+        void setCachedJsonAndDelete(resultKey, rankedResults, CACHE_TTL, `fast:${cacheKey(query)}`);
+        persistSearchMemoryAsync(query, toPersistable(rankedResults));
       }
-      persistSearchMemoryAsync(query, toPersistable(results));
       return results;
     },
     (error) => {
@@ -256,13 +252,12 @@ export async function processMediaQuery(
   const resultKey = fullCacheKey(query, personalization);
   const fullKey = cacheKey(query);
   const providerKey = `providers:${fullKey}`;
-  const fastKey = `fast:${fullKey}`;
   const candidateKey = `${CACHE_VERSION}:candidates:${normalizeQuery(query)}`;
 
-  const [cachedResult, cachedFull, cachedProviders, cachedMerged, cachedCandidates] = await timed(
+  const [cachedResult, cachedFull, cachedProviders, cachedCandidates] = await timed(
     timings,
     'cache:checks',
-    () => getCachedJsonMany<any>([resultKey, fullKey, providerKey, fastKey, candidateKey])
+    () => getCachedJsonMany<any>([resultKey, fullKey, providerKey, candidateKey])
   );
   if (cachedResult && cachedResult.length > 0) {
     recordCache('hit', 'ranked');
@@ -271,11 +266,7 @@ export async function processMediaQuery(
   recordCache('miss', 'ranked');
 
   const remainingMs = SEARCH_DEADLINE_MS - (Date.now() - startedAt);
-  if (remainingMs <= 0) return cachedMerged ?? cachedProviders ?? [];
-
-  if (cachedMerged && cachedMerged.length > 0) {
-    return rankMergedResults(query, cachedMerged, timings, personalization);
-  }
+  if (remainingMs <= 0) return cachedProviders ?? [];
 
   const candidatesPromise = generateCandidatesWithAi(query, cachedCandidates);
   const semanticPromise = Promise.all([
@@ -283,20 +274,27 @@ export async function processMediaQuery(
     timed(timings, 'vector:recall', () => recallItemsByQuery(query)),
   ]);
   const fast = await processMediaQueryFast(query, timings, cachedFull, cachedProviders);
+  const aiResultsPromise = timed(timings, 'gemini:candidates', () =>
+    generateAndHydrateCandidates(query, candidatesPromise, fast)
+  );
+
   const enrich = (async () => {
     const { results: merged } = await mergeMediaQueryResults(
       query,
       fast,
       timings,
-      candidatesPromise,
+      aiResultsPromise,
       semanticPromise
     );
     if (merged.length === 0) return fast;
     return rankMergedResults(query, merged, timings, personalization);
   })();
 
-  const semanticFallbackPromise = semanticPromise.then(([memoryResults, vectorResults]) =>
-    buildSemanticFallback([...vectorResults, ...memoryResults], fast)
+  const semanticFallbackPromise = Promise.all([
+    aiResultsPromise.catch(() => [] as any[]),
+    semanticPromise.catch(() => [[], []] as [any[], any[]]),
+  ]).then(([aiResults, [memoryResults, vectorResults]]) =>
+    buildSemanticFallback([...aiResults, ...vectorResults, ...memoryResults], fast)
   );
 
   return withDeadline(
@@ -331,15 +329,16 @@ async function rankWithAi(
   allResults: any[],
   personalization?: UserSearchSignal
 ): Promise<any[]> {
-  const limitedResults = allResults.slice(0, 25);
+  const limitedResults = allResults.slice(0, 40);
   const compact = limitedResults.map((r, index) => ({
     index,
-    title: r.title,
     type: r.type,
     provider: r.provider,
     releaseDate: r.releaseDate ?? null,
     rating: r.rating ?? null,
-    genres: normalizeGenres(r.genres)?.slice(0, 5) ?? [],
+    genres:
+      normalizeGenres(r.genres)?.slice(0, 5) ??
+      (Array.isArray(r.genres) ? r.genres.slice(0, 5) : []),
     creators: Array.isArray(r.creators) ? r.creators.slice(0, 3) : [],
     description: compactDescription(r.description),
   }));
@@ -354,7 +353,7 @@ async function rankWithAi(
       prompt: recommendationPrompt,
       taskLabel: 'rank',
       task: 'rank',
-      timeoutMs: 6000,
+      timeoutMs: 5000,
     });
     console.log(`[search] rank via ${provider} for "${query}"`);
 

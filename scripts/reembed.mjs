@@ -28,6 +28,7 @@ const { values } = parseArgs({
 
 const model = process.env.EMBEDDING_MODEL || "gemini-embedding-001";
 const dims = Number(process.env.EMBEDDING_DIMS || 1536);
+const embeddingVersion = "v2";
 const apiKey = process.env.GEMINI_API_KEY;
 const target = values.target;
 const batchSize = clampInt(values.batch, DEFAULT_BATCH_SIZE, 1, MAX_BATCH_SIZE);
@@ -167,6 +168,13 @@ async function embedBatchWithRetry(texts, taskType) {
   throw new Error("unreachable");
 }
 
+function stringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (entry) => typeof entry === "string" && Boolean(entry.trim())
+  );
+}
+
 function buildItemEmbeddingText(media) {
   let metadata = media.metadata;
   if (typeof metadata === "string") {
@@ -180,22 +188,31 @@ function buildItemEmbeddingText(media) {
   const overview =
     typeof md.overview === "string" && md.overview.trim()
       ? md.overview
-      : typeof md.description === "string"
+      : typeof md.description === "string" && md.description.trim()
         ? md.description
         : "";
-  const genres = Array.isArray(md.genres)
-    ? md.genres.filter((genre) => typeof genre === "string")
-    : [];
-  const creators = Array.isArray(md.creators)
-    ? md.creators.filter((creator) => typeof creator === "string")
-    : [];
+  const genres =
+    stringArray(md.genres).length > 0
+      ? stringArray(md.genres)
+      : stringArray(md.subjects).length > 0
+        ? stringArray(md.subjects)
+        : stringArray(md.tags);
+  const themes =
+    stringArray(md.themes).length > 0
+      ? stringArray(md.themes)
+      : stringArray(md.moods);
+  const creators = stringArray(md.creators);
+
+  if (!overview && genres.length === 0 && themes.length === 0 && creators.length === 0) {
+    return "";
+  }
 
   return [
-    media.title,
-    media.mediaType !== "unknown" ? `(${media.mediaType})` : "",
-    overview,
-    genres.length > 0 ? `Genres: ${genres.join(", ")}` : "",
-    creators.length > 0 ? `By ${creators.join(", ")}` : "",
+    overview ? `Description: ${overview}` : "",
+    genres.length > 0 ? `Genres and themes: ${genres.join(", ")}` : "",
+    themes.length > 0 ? `Moods and themes: ${themes.join(", ")}` : "",
+    creators.length > 0 ? `Creators: ${creators.join(", ")}` : "",
+    media.mediaType !== "unknown" ? `Medium: ${media.mediaType}` : "",
   ]
     .filter(Boolean)
     .join(". ")
@@ -207,12 +224,25 @@ async function loadCheckpoint() {
   try {
     const raw = await readFile(CHECKPOINT_PATH, "utf8");
     const parsed = JSON.parse(raw);
-    if (parsed.model === model && parsed.dims === dims) return parsed;
+    if (
+      parsed.model === model &&
+      parsed.dims === dims &&
+      parsed.version === embeddingVersion
+    ) {
+      return parsed;
+    }
     console.warn(
-      `[reembed] checkpoint was for ${parsed.model}@${parsed.dims}; starting fresh`
+      `[reembed] checkpoint was for ${parsed.model}@${parsed.dims}@${parsed.version}; starting fresh`
     );
   } catch {}
-  return { model, dims, media: null, queries: null, updatedAt: null };
+  return {
+    model,
+    dims,
+    version: embeddingVersion,
+    media: null,
+    queries: null,
+    updatedAt: null,
+  };
 }
 
 async function saveCheckpoint(checkpoint) {
@@ -230,7 +260,9 @@ async function countRows(table, cursor) {
 }
 
 async function clearEmbeddings(table) {
-  await prisma.$executeRawUnsafe(`UPDATE "${table}" SET embedding = NULL`);
+  await prisma.$executeRawUnsafe(
+    `UPDATE "${table}" SET embedding = NULL, "embeddingVersion" = NULL`
+  );
 }
 
 async function processTarget({
@@ -276,25 +308,35 @@ async function processTarget({
     if (!rows || rows.length === 0) break;
 
     batchNumber += 1;
-    const texts = rows.map(buildText);
+    const prepared = rows
+      .map((row) => ({ row, text: buildText(row) }))
+      .filter((entry) => entry.text.trim().length > 0);
 
     if (dryRun) {
       console.log(
-        `[reembed] ${table} batch ${batchNumber}: would embed ${rows.length} rows (${
+        `[reembed] ${table} batch ${batchNumber}: would embed ${prepared.length}/${rows.length} rows (${
           rows[0].id
         } .. ${rows[rows.length - 1].id})`
       );
-    } else {
-      const embeddings = await embedBatchWithRetry(texts, taskType);
-      for (let i = 0; i < rows.length; i++) {
+    } else if (prepared.length > 0) {
+      const embeddings = await embedBatchWithRetry(
+        prepared.map((entry) => entry.text),
+        taskType
+      );
+      for (let i = 0; i < prepared.length; i++) {
         await prismaClient.$executeRawUnsafe(
-          `UPDATE "${table}" SET embedding = $1::vector WHERE id = $2`,
+          `UPDATE "${table}" SET embedding = $1::vector, "embeddingVersion" = $2 WHERE id = $3`,
           vectorLiteral(embeddings[i]),
-          rows[i].id
+          embeddingVersion,
+          prepared[i].row.id
         );
       }
       console.log(
-        `[reembed] ${table} batch ${batchNumber}: embedded ${rows.length} rows (${processed + rows.length}/${total})`
+        `[reembed] ${table} batch ${batchNumber}: embedded ${prepared.length}/${rows.length} rows (${processed + rows.length}/${total})`
+      );
+    } else {
+      console.log(
+        `[reembed] ${table} batch ${batchNumber}: skipped ${rows.length} rows with no semantic text`
       );
     }
 
@@ -313,10 +355,18 @@ const prisma = new PrismaClient();
 
 try {
   const checkpoint = values.restart
-    ? { model, dims, media: null, queries: null, updatedAt: null }
+    ? {
+        model,
+        dims,
+        version: embeddingVersion,
+        media: null,
+        queries: null,
+        updatedAt: null,
+      }
     : await loadCheckpoint();
   checkpoint.model = model;
   checkpoint.dims = dims;
+  checkpoint.version = embeddingVersion;
 
   if (target === "media" || target === "all") {
     await processTarget({

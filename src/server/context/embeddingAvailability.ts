@@ -1,4 +1,5 @@
 import prisma from "@/server/db/prisma";
+import { EMBEDDING_VERSION } from "./embed";
 
 const AVAILABILITY_TTL_MS = 30_000;
 
@@ -11,7 +12,10 @@ export async function hasEmbeddedMedia(): Promise<boolean> {
   if (Date.now() - mediaCheckedAt < AVAILABILITY_TTL_MS) return mediaAvailable;
   try {
     const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
-      SELECT EXISTS (SELECT 1 FROM "Media" WHERE embedding IS NOT NULL) AS exists
+      SELECT EXISTS (
+        SELECT 1 FROM "Media"
+        WHERE embedding IS NOT NULL AND "embeddingVersion" = ${EMBEDDING_VERSION}
+      ) AS exists
     `;
     mediaAvailable = Boolean(rows[0]?.exists);
   } catch {
@@ -25,7 +29,10 @@ export async function hasEmbeddedQueries(): Promise<boolean> {
   if (Date.now() - queriesCheckedAt < AVAILABILITY_TTL_MS) return queriesAvailable;
   try {
     const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
-      SELECT EXISTS (SELECT 1 FROM "SearchQuery" WHERE embedding IS NOT NULL) AS exists
+      SELECT EXISTS (
+        SELECT 1 FROM "SearchQuery"
+        WHERE embedding IS NOT NULL AND "embeddingVersion" = ${EMBEDDING_VERSION}
+      ) AS exists
     `;
     queriesAvailable = Boolean(rows[0]?.exists);
   } catch {
