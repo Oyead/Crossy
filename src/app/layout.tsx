@@ -51,8 +51,8 @@ export const metadata: Metadata = {
     description:
       "Discover your next favorite movie, show, game, or book across every medium with AI-powered cross-medium recommendations.",
     images: ["/logo.png"],
-    creator: "@crossy",
-    site: "@crossy",
+    creator: "@crossymedia",
+    site: "@crossymedia",
   },
   alternates: {
     canonical: "https://crossy.app/",
