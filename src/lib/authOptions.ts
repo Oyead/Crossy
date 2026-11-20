@@ -9,6 +9,41 @@ import { getChallenge, deleteChallenge } from '@/lib/webauthnChallengeStore';
 import bcrypt from 'bcryptjs';
 import prisma from '@/server/db/prisma';
 
+const githubClientId =
+  process.env.GITHUB_ID ||
+  process.env.GITHUB_CLIENT_ID ||
+  process.env.AUTH_GITHUB_ID;
+const githubClientSecret =
+  process.env.GITHUB_SECRET ||
+  process.env.GITHUB_CLIENT_SECRET ||
+  process.env.AUTH_GITHUB_SECRET;
+const googleClientId =
+  process.env.GOOGLE_ID ||
+  process.env.GOOGLE_CLIENT_ID ||
+  process.env.AUTH_GOOGLE_ID;
+const googleClientSecret =
+  process.env.GOOGLE_SECRET ||
+  process.env.GOOGLE_CLIENT_SECRET ||
+  process.env.AUTH_GOOGLE_SECRET;
+
+const missingOAuthEnv = [
+  !githubClientId && 'GITHUB_ID (or GITHUB_CLIENT_ID/AUTH_GITHUB_ID)',
+  !githubClientSecret && 'GITHUB_SECRET (or GITHUB_CLIENT_SECRET/AUTH_GITHUB_SECRET)',
+  !googleClientId && 'GOOGLE_ID (or GOOGLE_CLIENT_ID/AUTH_GOOGLE_ID)',
+  !googleClientSecret && 'GOOGLE_SECRET (or GOOGLE_CLIENT_SECRET/AUTH_GOOGLE_SECRET)',
+].filter(Boolean);
+
+if (missingOAuthEnv.length > 0) {
+  console.error(`Missing OAuth environment variables: ${missingOAuthEnv.join(', ')}`);
+}
+
+const nextAuthUrl = process.env.NEXTAUTH_URL?.trim();
+if (!nextAuthUrl) {
+  console.error('NEXTAUTH_URL is not set; OAuth callbacks will fail.');
+} else if (nextAuthUrl.endsWith('/')) {
+  console.error('NEXTAUTH_URL must not end with a trailing slash.');
+}
+
 function safePrismaAdapter() {
   const adapter = PrismaAdapter(prisma);
   return {
@@ -22,15 +57,16 @@ function safePrismaAdapter() {
 
 export const authOptions: NextAuthOptions = {
   adapter: safePrismaAdapter(),
+  debug: process.env.NEXTAUTH_DEBUG === "true",
   providers: [
     GitHubProvider({
-      clientId: process.env.GITHUB_ID,
-      clientSecret: process.env.GITHUB_SECRET,
+      clientId: githubClientId,
+      clientSecret: githubClientSecret,
       allowDangerousEmailAccountLinking: true,
     }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_ID,
-      clientSecret: process.env.GOOGLE_SECRET,
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
       allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
