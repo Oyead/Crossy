@@ -26,10 +26,12 @@ export const authOptions: NextAuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_ID,
       clientSecret: process.env.GITHUB_SECRET,
+      allowDangerousEmailAccountLinking: true,
     }),
     GoogleProvider({
       clientId: process.env.GOOGLE_ID,
       clientSecret: process.env.GOOGLE_SECRET,
+      allowDangerousEmailAccountLinking: true,
     }),
     CredentialsProvider({
       // The name to display on the sign in form (e.g. "Sign in with...")
