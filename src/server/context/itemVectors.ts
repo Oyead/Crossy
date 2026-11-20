@@ -7,6 +7,7 @@ import {
   parseVectorLiteral,
   toVectorLiteral,
 } from "./embed";
+import { hasEmbeddedMedia } from "./embeddingAvailability";
 
 const ITEM_RECALL_LIMIT = 8;
 const ITEM_SIMILARITY_DISTANCE_THRESHOLD = 0.85;
@@ -178,6 +179,7 @@ export async function recallItemsByVector(
 /** True cross-medium semantic search over item descriptions. */
 export async function recallItemsByQuery(query: string): Promise<MediaResult[]> {
   try {
+    if (!(await hasEmbeddedMedia())) return [];
     const embedding = await embedText(query, "query");
     if (!embedding || embedding.length !== EMBEDDING_DIMS) return [];
     const matches = await recallItemsByVector(toVectorLiteral(embedding));
@@ -217,7 +219,10 @@ export async function getTasteProfile(userId: string): Promise<TasteProfile> {
   try {
     const favorites = await prisma.favorite.findMany({
       where: { userId },
-      include: { media: true },
+      select: {
+        mediaId: true,
+        media: { select: { title: true } },
+      },
       take: TASTE_FAVORITE_LIMIT,
       orderBy: { createdAt: "desc" },
     });

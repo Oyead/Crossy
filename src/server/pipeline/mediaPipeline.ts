@@ -6,12 +6,12 @@ import type { MediaCandidate } from '../ai/schemas';
 import { guardedProviderSearch } from './circuitBreaker';
 import { Timings, timed } from '../../lib/trace';
 import {
-  getCachedJson,
   getCachedJsonMany,
   setCachedJson,
   setCachedJsonAndDelete,
   normalizeQuery,
   CACHE_TTL,
+  CACHE_VERSION,
   PROVIDER_CACHE_TTL,
 } from '../../lib/cache';
 import { recallSimilarQueryMedia, persistSearchMemoryAsync } from '../context/searchMemory';
@@ -22,13 +22,32 @@ import type { UserSearchSignal } from '../context/userSignal';
 import { recordCache } from '../../lib/cacheMetrics';
 
 function cacheKey(query: string): string {
-  return `search:${normalizeQuery(query)}`;
+  return `${CACHE_VERSION}:search:${normalizeQuery(query)}`;
 }
 
 export function fullCacheKey(query: string, personalization?: UserSearchSignal): string {
   return personalization
-    ? `search:u${personalization.userId}:${normalizeQuery(query)}`
+    ? `${CACHE_VERSION}:search:u${personalization.userId}:${normalizeQuery(query)}`
     : cacheKey(query);
+}
+
+const SEARCH_DEADLINE_MS = 8_000;
+const RANK_BUDGET_MS = 2_500;
+
+function withDeadline<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      }
+    );
+  });
 }
 
 const CONFIDENCE_BANDS: Array<[number, number]> = [
@@ -82,13 +101,22 @@ function compactDescription(text: any): string {
   return lastEnd > 60 ? cut.slice(0, lastEnd + 1) : cut;
 }
 
-export async function processMediaQueryFast(query: string, timings?: Timings): Promise<any[]> {
+export async function processMediaQueryFast(
+  query: string,
+  timings?: Timings,
+  cachedFull?: any[] | null,
+  cachedFast?: any[] | null
+): Promise<any[]> {
   const fullKey = cacheKey(query);
-  const fastKey = `fast:${fullKey}`;
+  const providerKey = `providers:${fullKey}`;
 
-  const [cachedFull, cachedFast] = await timed(timings, 'cache:checks', () =>
-    getCachedJsonMany([fullKey, fastKey])
-  );
+  if (cachedFull === undefined || cachedFast === undefined) {
+    const [full, providers] = await timed(timings, 'cache:checks', () =>
+      getCachedJsonMany<any[]>([fullKey, providerKey])
+    );
+    if (cachedFull === undefined) cachedFull = full;
+    if (cachedFast === undefined) cachedFast = providers;
+  }
   if (cachedFull) return cachedFull;
   if (cachedFast) return cachedFast;
 
@@ -104,7 +132,7 @@ export async function processMediaQueryFast(query: string, timings?: Timings): P
   const deduped = filterResultsWithImages(dedupeMediaResults(results));
   const sorted = cheapSort(deduped);
 
-  await timed(timings, 'cache:write', () => setCachedJson(fastKey, sorted, PROVIDER_CACHE_TTL));
+  await timed(timings, 'cache:write', () => setCachedJson(providerKey, sorted, PROVIDER_CACHE_TTL));
   return sorted;
 }
 
@@ -153,31 +181,24 @@ export async function rankMergedResults(
   query: string,
   merged: any[],
   timings?: Timings,
-  personalization?: UserSearchSignal,
-  cachedFullPromise?: Promise<any | null>
+  personalization?: UserSearchSignal
 ): Promise<any[]> {
   const resultKey = fullCacheKey(query, personalization);
+  const fallback = cheapSort(merged);
 
-  const cachedFullPromiseResolved =
-    cachedFullPromise ?? getCachedJson(resultKey);
-  const cachedFull = await timed(timings, 'cache:full', () => cachedFullPromiseResolved);
-  if (cachedFull) {
-    if (!cachedFullPromise) recordCache('hit', 'ranked');
-    return diversifyRanked(cachedFull);
-  }
-  if (!cachedFullPromise) recordCache('miss', 'ranked');
-
-  const results = await timed(timings, 'gemini:rank', () =>
+  const rankPromise = timed(timings, 'gemini:rank', () =>
     rankWithAi(query, merged, personalization)
-  );
-
-  await timed(timings, 'cache:write', () =>
-    setCachedJsonAndDelete(resultKey, results, CACHE_TTL, `fast:${cacheKey(query)}`)
+  ).then(
+    (results) => {
+      void setCachedJsonAndDelete(resultKey, results, CACHE_TTL, `fast:${cacheKey(query)}`);
+      return results;
+    },
+    () => fallback
   );
 
   persistSearchMemoryAsync(
     query,
-    results.map((r) => ({
+    merged.map((r) => ({
       id: r.id,
       title: r.title,
       type: r.type,
@@ -195,7 +216,7 @@ export async function rankMergedResults(
   );
   backfillUnembeddedMediaAsync();
 
-  return results;
+  return withDeadline(rankPromise, RANK_BUDGET_MS, fallback);
 }
 
 export async function processMediaQuery(
@@ -203,19 +224,40 @@ export async function processMediaQuery(
   timings?: Timings,
   personalization?: UserSearchSignal
 ): Promise<any[]> {
-  const cachedFullPromise = getCachedJson<any[]>(fullCacheKey(query, personalization));
-  const cachedFull = await timed(timings, 'cache:full', () => cachedFullPromise);
-  if (cachedFull && cachedFull.length > 0) {
+  const startedAt = Date.now();
+  const resultKey = fullCacheKey(query, personalization);
+  const fullKey = cacheKey(query);
+  const providerKey = `providers:${fullKey}`;
+  const fastKey = `fast:${fullKey}`;
+  const candidateKey = `${CACHE_VERSION}:candidates:${normalizeQuery(query)}`;
+
+  const [cachedResult, cachedFull, cachedProviders, cachedMerged, cachedCandidates] = await timed(
+    timings,
+    'cache:checks',
+    () => getCachedJsonMany<any>([resultKey, fullKey, providerKey, fastKey, candidateKey])
+  );
+  if (cachedResult && cachedResult.length > 0) {
     recordCache('hit', 'ranked');
-    return diversifyRanked(cachedFull);
+    return diversifyRanked(cachedResult);
   }
   recordCache('miss', 'ranked');
 
-  const candidatesPromise = generateCandidatesWithAi(query);
-  const fast = await processMediaQueryFast(query, timings);
-  const { results: merged } = await mergeMediaQueryResults(query, fast, timings, candidatesPromise);
-  if (merged.length === 0) return [];
-  return rankMergedResults(query, merged, timings, personalization, Promise.resolve(null));
+  const remainingMs = SEARCH_DEADLINE_MS - (Date.now() - startedAt);
+  if (remainingMs <= 0) return cachedMerged ?? cachedProviders ?? [];
+
+  if (cachedMerged && cachedMerged.length > 0) {
+    return rankMergedResults(query, cachedMerged, timings, personalization);
+  }
+
+  const candidatesPromise = generateCandidatesWithAi(query, cachedCandidates);
+  const fast = await processMediaQueryFast(query, timings, cachedFull, cachedProviders);
+  const enrich = (async () => {
+    const { results: merged } = await mergeMediaQueryResults(query, fast, timings, candidatesPromise);
+    if (merged.length === 0) return fast;
+    return rankMergedResults(query, merged, timings, personalization);
+  })();
+
+  return withDeadline(enrich, SEARCH_DEADLINE_MS - (Date.now() - startedAt), fast);
 }
 
 async function generateAndHydrateCandidates(
@@ -266,7 +308,7 @@ async function rankWithAi(
       prompt: recommendationPrompt,
       taskLabel: 'rank',
       task: 'rank',
-      timeoutMs: 15000,
+      timeoutMs: 6000,
     });
     console.log(`[search] rank via ${provider} for "${query}"`);
 

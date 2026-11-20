@@ -4,9 +4,10 @@ import { generateTextWithFallback } from '../ai/llmClient';
 import { mediaCandidatesSchema, MediaCandidate } from '../ai/schemas';
 import { MediaResult } from '../integrations/MediaSearchProvider';
 import { guardedProviderSearch } from './circuitBreaker';
-import { getCachedJson, setCachedJson, normalizeQuery } from '../../lib/cache';
+import { getCachedJson, setCachedJson, normalizeQuery, CACHE_VERSION } from '../../lib/cache';
 
 const CONCURRENCY = 10;
+const MAX_HYDRATE_CANDIDATES = 10;
 const CANDIDATE_CACHE_TTL = 15 * 60;
 
 export function normalizeTitle(title: string): string {
@@ -72,13 +73,20 @@ export function compactMediaResults<T extends MediaResult>(results: T[]): T[] {
   });
 }
 
-export async function generateCandidatesWithAi(query: string): Promise<MediaCandidate[]> {
-  const cacheKey = `candidates:${normalizeQuery(query)}`;
+export async function generateCandidatesWithAi(
+  query: string,
+  cached?: MediaCandidate[] | null
+): Promise<MediaCandidate[]> {
+  const cacheKey = `${CACHE_VERSION}:candidates:${normalizeQuery(query)}`;
 
-  try {
-    const cached = await getCachedJson<MediaCandidate[]>(cacheKey);
+  if (cached !== undefined) {
     if (cached && cached.length > 0) return cached;
-  } catch (error) {
+  } else {
+    try {
+      const cachedValue = await getCachedJson<MediaCandidate[]>(cacheKey);
+      if (cachedValue && cachedValue.length > 0) return cachedValue;
+    } catch (error) {
+    }
   }
 
   try {
@@ -154,9 +162,10 @@ export async function hydrateCandidates(
   baseResults: MediaResult[] = []
 ): Promise<MediaResult[]> {
   const hydrated: MediaResult[] = [];
+  const limited = candidates.slice(0, MAX_HYDRATE_CANDIDATES);
 
-  for (let i = 0; i < candidates.length; i += CONCURRENCY) {
-    const batch = candidates.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < limited.length; i += CONCURRENCY) {
+    const batch = limited.slice(i, i + CONCURRENCY);
     const results = await Promise.all(batch.map((candidate) => hydrateCandidate(candidate, baseResults)));
     hydrated.push(...results.filter((r): r is MediaResult => r !== null));
   }

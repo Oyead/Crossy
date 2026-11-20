@@ -66,6 +66,15 @@ export async function recallCoClickedItems(
           externalId: c.externalId,
         })),
       },
+      select: {
+        id: true,
+        externalId: true,
+        title: true,
+        mediaType: true,
+        sourceApi: true,
+        posterUrl: true,
+        metadata: true,
+      },
     });
 
     const countByKey = new Map(

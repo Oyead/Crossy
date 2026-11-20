@@ -6,6 +6,7 @@ import {
   toVectorLiteral,
 } from "./embed";
 import { ensureMediaEmbedding, mediaRowToResult } from "./itemVectors";
+import { hasEmbeddedQueries } from "./embeddingAvailability";
 import { normalizeGenres } from "../integrations/tagMap";
 import type { MediaResult } from "../integrations/MediaSearchProvider";
 
@@ -17,43 +18,59 @@ export async function recallSimilarQueryMedia(
   query: string
 ): Promise<MediaResult[]> {
   try {
+    if (!(await hasEmbeddedQueries())) return [];
     const embedding = await embedText(query, "query");
     if (!embedding) return [];
 
     const vectorLiteral = toVectorLiteral(embedding);
-    const similar = await prisma.$queryRaw<Array<{ id: string; rawInput: string; distance: number }>>`
-      SELECT id, "rawInput", embedding <=> ${vectorLiteral}::vector AS distance
-      FROM "SearchQuery"
-      WHERE embedding IS NOT NULL
-        AND LOWER("rawInput") <> LOWER(${query})
-      ORDER BY embedding <=> ${vectorLiteral}::vector
-      LIMIT ${RECALL_LIMIT}
+    const rows = await prisma.$queryRaw<
+      Array<{
+        id: string;
+        externalId: string;
+        title: string;
+        mediaType: string;
+        sourceApi: string;
+        posterUrl: string | null;
+        metadata: unknown;
+        distance: number;
+      }>
+    >`
+      WITH similar AS (
+        SELECT id, embedding <=> ${vectorLiteral}::vector AS distance
+        FROM "SearchQuery"
+        WHERE embedding IS NOT NULL
+          AND LOWER("rawInput") <> LOWER(${query})
+        ORDER BY embedding <=> ${vectorLiteral}::vector
+        LIMIT ${RECALL_LIMIT}
+      )
+      SELECT
+        m.id,
+        m."externalId",
+        m.title,
+        m."mediaType",
+        m."sourceApi",
+        m."posterUrl",
+        m.metadata,
+        similar.distance
+      FROM similar
+      JOIN "Recommendation" r ON r."queryId" = similar.id
+      JOIN "Media" m ON m.id = r."mediaId"
+      WHERE similar.distance <= ${SIMILARITY_DISTANCE_THRESHOLD}
+      ORDER BY similar.distance ASC, r."createdAt" DESC
+      LIMIT 40
     `;
-
-    const relevantIds = similar
-      .filter((row) => Number(row.distance) <= SIMILARITY_DISTANCE_THRESHOLD)
-      .map((row) => row.id);
-    if (relevantIds.length === 0) return [];
-
-    const recs = await prisma.recommendation.findMany({
-      where: { queryId: { in: relevantIds } },
-      include: { media: true },
-      orderBy: { createdAt: "desc" },
-      take: 40,
-    });
 
     const seen = new Set<string>();
     const results: MediaResult[] = [];
-    for (const rec of recs) {
-      if (!rec.media) continue;
-      const key = `${rec.media.sourceApi}:${rec.media.externalId}`;
+    for (const row of rows) {
+      const key = `${row.sourceApi}:${row.externalId}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      results.push(mediaRowToResult(rec.media));
+      results.push(mediaRowToResult(row));
     }
 
     if (results.length > 0) {
-      console.log(`[searchMemory] Recalled ${results.length} items from ${relevantIds.length} similar past searches`);
+      console.log(`[searchMemory] Recalled ${results.length} items from similar past searches`);
     }
     return results.slice(0, 12);
   } catch (error) {
@@ -118,61 +135,95 @@ async function persistSearchMemory(
   }
 
   const topResults = results.slice(0, PERSIST_RESULT_LIMIT);
+  const keys = topResults.map((r) => ({
+    mediaType: r.type,
+    externalId: r.id,
+  }));
+  const mediaSelect = {
+    id: true,
+    title: true,
+    mediaType: true,
+    externalId: true,
+    metadata: true,
+  } as const;
+
+  const existing = await prisma.media.findMany({
+    where: { OR: keys },
+    select: mediaSelect,
+  });
+  const existingKeys = new Set(
+    existing.map((m) => `${m.mediaType}:${m.externalId}`)
+  );
+
+  const missing = topResults.filter(
+    (r) => !existingKeys.has(`${r.type}:${r.id}`)
+  );
+  if (missing.length > 0) {
+    await prisma.media.createMany({
+      data: missing.map((r) => ({
+        mediaType: r.type,
+        externalId: r.id,
+        title: r.title,
+        posterUrl: r.posterUrl ?? null,
+        sourceApi: r.provider,
+        metadata: buildMediaMetadata(r),
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  const allMedia = await prisma.media.findMany({
+    where: { OR: keys },
+    select: mediaSelect,
+  });
+  const mediaByKey = new Map(
+    allMedia.map((m) => [`${m.mediaType}:${m.externalId}`, m])
+  );
+
   const recommendations: Array<{ queryId: string; mediaId: string; matchReason: string }> = [];
+  const metadataUpdates: Array<{ id: string; metadata: Prisma.InputJsonObject }> = [];
 
   for (const result of topResults) {
-    try {
-      const media = await prisma.media.upsert({
-        where: {
-          mediaType_externalId: {
-            mediaType: result.type,
-            externalId: result.id,
-          },
-        },
-        update: {},
-        create: {
-          mediaType: result.type,
-          externalId: result.id,
-          title: result.title,
-          posterUrl: result.posterUrl ?? null,
-          sourceApi: result.provider,
-          metadata: buildMediaMetadata(result),
-        },
-      });
+    const media = mediaByKey.get(`${result.type}:${result.id}`);
+    if (!media) continue;
 
-      // Backfill metadata for rows persisted before enrichment existed.
-      const md = (media.metadata ?? {}) as Record<string, unknown>;
-      if (Object.keys(md).length === 0) {
-        await prisma.media
-          .update({
-            where: { id: media.id },
-            data: { metadata: buildMediaMetadata(result) },
-          })
-          .catch(() => undefined);
-      }
-
-      // Item-side embedding: puts this row into the shared vector space.
-      void ensureMediaEmbedding({
+    const md = (media.metadata ?? {}) as Record<string, unknown>;
+    const metadata = Object.keys(md).length > 0 ? md : buildMediaMetadata(result);
+    if (Object.keys(md).length === 0) {
+      metadataUpdates.push({
         id: media.id,
-        title: media.title,
-        mediaType: media.mediaType,
-        metadata:
-          Object.keys(md).length > 0
-            ? md
-            : buildMediaMetadata(result),
+        metadata: buildMediaMetadata(result),
       });
-
-      recommendations.push({
-        queryId: searchQuery.id,
-        mediaId: media.id,
-        matchReason: [
-          result.reason ?? "",
-          typeof result.confidence === "number" ? `(confidence: ${result.confidence.toFixed(2)})` : "",
-        ].join(" ").trim(),
-      });
-    } catch {
-      continue;
     }
+
+    void ensureMediaEmbedding({
+      id: media.id,
+      title: media.title,
+      mediaType: media.mediaType,
+      metadata,
+    });
+
+    recommendations.push({
+      queryId: searchQuery.id,
+      mediaId: media.id,
+      matchReason: [
+        result.reason ?? "",
+        typeof result.confidence === "number" ? `(confidence: ${result.confidence.toFixed(2)})` : "",
+      ].join(" ").trim(),
+    });
+  }
+
+  if (metadataUpdates.length > 0) {
+    await Promise.all(
+      metadataUpdates.map((update) =>
+        prisma.media
+          .update({
+            where: { id: update.id },
+            data: { metadata: update.metadata },
+          })
+          .catch(() => undefined)
+      )
+    );
   }
 
   if (recommendations.length > 0) {

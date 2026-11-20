@@ -1,6 +1,6 @@
 import { redis } from '../../lib/redis';
 import { MediaSearchProvider, MediaResult } from '../integrations/MediaSearchProvider';
-import { deserialize, normalizeQuery, PROVIDER_CACHE_TTL } from '../../lib/cache';
+import { deserialize, normalizeQuery, PROVIDER_CACHE_TTL, CACHE_VERSION } from '../../lib/cache';
 import { compactMediaResults } from './candidateSearch';
 
 const FAILURE_THRESHOLD = 2;
@@ -17,7 +17,7 @@ function cbProbeKey(name: string): string {
 }
 
 function providerCacheKey(name: string, query: string): string {
-  return `provider:${name.toLowerCase()}:${normalizeQuery(query)}`;
+  return `${CACHE_VERSION}:provider:${name.toLowerCase()}:${normalizeQuery(query)}`;
 }
 
 export async function recordFailure(name: string): Promise<void> {

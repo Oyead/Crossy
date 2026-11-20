@@ -1,5 +1,6 @@
 import { redis } from './redis';
 
+export const CACHE_VERSION = 'v2';
 export const CACHE_TTL = 60 * 60;
 export const PROVIDER_CACHE_TTL = 20 * 60;
 
