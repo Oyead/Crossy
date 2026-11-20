@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import ResultsGrid from "@/components/results/ResultsGrid";
 import ResultsSkeleton from "@/components/results/ResultsSkeleton";
+import SearchBar from "@/components/search/SearchBar";
 import { getCurrentUserId } from "@/lib/auth";
 import { getUserSearchSignal, type UserSearchSignal } from "@/server/context/userSignal";
 import { processMediaQuery } from "@/server/pipeline/mediaPipeline";
@@ -59,6 +60,10 @@ export default async function Page({ params }: { params: { queryId: string } }) 
                   &ldquo;{query}&rdquo;
                 </span>
               </h1>
+            </div>
+
+            <div className="mt-4 w-full">
+              <SearchBar />
             </div>
           </div>
 

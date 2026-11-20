@@ -108,14 +108,11 @@ export default function MediaCard({
         )}
 
         {/* Metadata */}
-        <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#9CA3AF]">
-          {sourceQuery ? (
-            <span className="truncate max-w-full">from &ldquo;{sourceQuery}&rdquo;</span>
-          ) : (
-            <span>#{provider}</span>
-          )}
-          {reason && <span>{reason}</span>}
-        </div>
+        {reason && (
+          <div className="mt-3 flex flex-wrap gap-3 text-xs text-[#9CA3AF]">
+            <span>{reason}</span>
+          </div>
+        )}
 
         {/* Favorite Button */}
         <div className="mt-4 flex items-center justify-end">

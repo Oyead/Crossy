@@ -1,7 +1,7 @@
 import { providerRegistry } from '../integrations/registry';
 import { generateTextWithFallback } from '../ai/llmClient';
 import { buildMediaRecommendationPrompt, UserTasteContext } from '../ai/prompts';
-import { generateCandidatesWithAi, hydrateCandidates, dedupeMediaResults, filterResultsWithImages, normalizeTitle } from './candidateSearch';
+import { generateCandidatesWithAi, hydrateCandidates, dedupeMediaResults, normalizeTitle } from './candidateSearch';
 import type { MediaCandidate } from '../ai/schemas';
 import { guardedProviderSearch } from './circuitBreaker';
 import { Timings, timed } from '../../lib/trace';
@@ -34,9 +34,19 @@ export function fullCacheKey(query: string, personalization?: UserSearchSignal):
 const SEARCH_DEADLINE_MS = 8_000;
 const RANK_BUDGET_MS = 2_500;
 
-function withDeadline<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+function withDeadline<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T | Promise<T>
+): Promise<T> {
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(fallback), ms);
+    const settleFallback = () => {
+      void Promise.resolve(fallback).then(
+        (value) => resolve(value),
+        () => resolve([] as unknown as T)
+      );
+    };
+    const timer = setTimeout(settleFallback, ms);
     promise.then(
       (value) => {
         clearTimeout(timer);
@@ -44,7 +54,7 @@ function withDeadline<T>(promise: Promise<T>, ms: number, fallback: T): Promise<
       },
       () => {
         clearTimeout(timer);
-        resolve(fallback);
+        settleFallback();
       }
     );
   });
@@ -93,6 +103,14 @@ function cheapSort(results: any[]): any[] {
   });
 }
 
+function semanticOrder(results: any[]): any[] {
+  return [...results];
+}
+
+function buildSemanticFallback(semanticResults: any[], providerResults: any[]): any[] {
+  return dedupeMediaResults([...semanticResults, ...providerResults]);
+}
+
 function compactDescription(text: any): string {
   const t = String(text ?? '').trim().replace(/\s+/g, ' ');
   if (t.length <= 180) return t;
@@ -129,7 +147,7 @@ export async function processMediaQueryFast(
     return batches.flat();
   });
 
-  const deduped = filterResultsWithImages(dedupeMediaResults(results));
+  const deduped = dedupeMediaResults(results);
   const sorted = cheapSort(deduped);
 
   await timed(timings, 'cache:write', () => setCachedJson(providerKey, sorted, PROVIDER_CACHE_TTL));
@@ -140,15 +158,21 @@ export async function mergeMediaQueryResults(
   query: string,
   baseResults: any[],
   timings?: Timings,
-  candidatesPromise?: Promise<MediaCandidate[]>
+  candidatesPromise?: Promise<MediaCandidate[]>,
+  semanticPromise?: Promise<[any[], any[]]>
 ): Promise<{ results: any[] }> {
-  const aiResults = await timed(timings, 'gemini:candidates', () =>
-    generateAndHydrateCandidates(query, candidatesPromise, baseResults)
-  );
+  const semanticRecall =
+    semanticPromise ??
+    Promise.all([
+      timed(timings, 'memory:recall', () => recallSimilarQueryMedia(query)),
+      timed(timings, 'vector:recall', () => recallItemsByQuery(query)),
+    ]);
 
-  const [memoryResults, vectorResults, cfResults] = await Promise.all([
-    timed(timings, 'memory:recall', () => recallSimilarQueryMedia(query)),
-    timed(timings, 'vector:recall', () => recallItemsByQuery(query)),
+  const [aiResults, [memoryResults, vectorResults], cfResults] = await Promise.all([
+    timed(timings, 'gemini:candidates', () =>
+      generateAndHydrateCandidates(query, candidatesPromise, baseResults)
+    ),
+    semanticRecall,
     timed(timings, 'cf:recall', () =>
       recallCoClickedItems(
         baseResults
@@ -158,15 +182,13 @@ export async function mergeMediaQueryResults(
     ),
   ]);
 
-  const merged = filterResultsWithImages(
-    dedupeMediaResults([
-      ...aiResults,
-      ...vectorResults,
-      ...cfResults,
-      ...memoryResults,
-      ...baseResults,
-    ])
-  );
+  const merged = dedupeMediaResults([
+    ...aiResults,
+    ...vectorResults,
+    ...cfResults,
+    ...memoryResults,
+    ...baseResults,
+  ]);
 
   if (merged.length > 0) {
     await timed(timings, 'cache:write', () =>
@@ -184,21 +206,10 @@ export async function rankMergedResults(
   personalization?: UserSearchSignal
 ): Promise<any[]> {
   const resultKey = fullCacheKey(query, personalization);
-  const fallback = cheapSort(merged);
+  const fallback = semanticOrder(merged);
 
-  const rankPromise = timed(timings, 'gemini:rank', () =>
-    rankWithAi(query, merged, personalization)
-  ).then(
-    (results) => {
-      void setCachedJsonAndDelete(resultKey, results, CACHE_TTL, `fast:${cacheKey(query)}`);
-      return results;
-    },
-    () => fallback
-  );
-
-  persistSearchMemoryAsync(
-    query,
-    merged.map((r) => ({
+  const toPersistable = (results: any[]) =>
+    results.map((r) => ({
       id: r.id,
       title: r.title,
       type: r.type,
@@ -212,8 +223,25 @@ export async function rankMergedResults(
       reason: r.reason,
       confidence: r.confidence,
       userId: personalization?.userId ?? null,
-    }))
+    }));
+
+  const rankPromise = timed(timings, 'gemini:rank', () =>
+    rankWithAi(query, merged, personalization)
+  ).then(
+    (results) => {
+      const ranked = results.length > 0 && results.some((r) => typeof r.confidence === 'number');
+      if (ranked) {
+        void setCachedJsonAndDelete(resultKey, results, CACHE_TTL, `fast:${cacheKey(query)}`);
+      }
+      persistSearchMemoryAsync(query, toPersistable(results));
+      return results;
+    },
+    (error) => {
+      console.error('[search] ranking failed; using semantic fallback:', error);
+      return fallback;
+    }
   );
+
   backfillUnembeddedMediaAsync();
 
   return withDeadline(rankPromise, RANK_BUDGET_MS, fallback);
@@ -250,14 +278,32 @@ export async function processMediaQuery(
   }
 
   const candidatesPromise = generateCandidatesWithAi(query, cachedCandidates);
+  const semanticPromise = Promise.all([
+    timed(timings, 'memory:recall', () => recallSimilarQueryMedia(query)),
+    timed(timings, 'vector:recall', () => recallItemsByQuery(query)),
+  ]);
   const fast = await processMediaQueryFast(query, timings, cachedFull, cachedProviders);
   const enrich = (async () => {
-    const { results: merged } = await mergeMediaQueryResults(query, fast, timings, candidatesPromise);
+    const { results: merged } = await mergeMediaQueryResults(
+      query,
+      fast,
+      timings,
+      candidatesPromise,
+      semanticPromise
+    );
     if (merged.length === 0) return fast;
     return rankMergedResults(query, merged, timings, personalization);
   })();
 
-  return withDeadline(enrich, SEARCH_DEADLINE_MS - (Date.now() - startedAt), fast);
+  const semanticFallbackPromise = semanticPromise.then(([memoryResults, vectorResults]) =>
+    buildSemanticFallback([...vectorResults, ...memoryResults], fast)
+  );
+
+  return withDeadline(
+    enrich,
+    SEARCH_DEADLINE_MS - (Date.now() - startedAt),
+    semanticFallbackPromise
+  );
 }
 
 async function generateAndHydrateCandidates(
@@ -324,16 +370,16 @@ async function rankWithAi(
     }
 
     if (recommendations.length === 0) {
-      return limitedResults;
+      throw new Error('[search] ranking returned no recommendations');
     }
 
     const enriched = recommendations
       .map((rec: any) => {
         const item = limitedResults[rec.index];
-        if (!item) return null;
+        if (!item || typeof rec.confidence !== 'number') return null;
         return {
           ...item,
-          reason: rec.reason,
+          reason: typeof rec.reason === 'string' ? rec.reason : undefined,
           confidence: rec.confidence,
         };
       })
@@ -347,12 +393,15 @@ async function rankWithAi(
     if (directMatch && !enriched.some((r) => r.id === directMatch.id)) {
       enriched.unshift({ ...directMatch, confidence: 1, reason: 'Exact match for your search' });
     }
+    if (enriched.length === 0) {
+      throw new Error('[search] ranking produced no valid candidates');
+    }
     const rankedIds = new Set(enriched.map((r) => r.id));
     const leftovers = limitedResults.filter((r) => !rankedIds.has(r.id));
 
     return [...enriched, ...leftovers];
   } catch (error) {
     console.error('[search] Gemini ranking failed:', error);
-    return limitedResults;
+    throw error;
   }
 }
