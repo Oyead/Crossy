@@ -1,0 +1,45 @@
+name: Prisma schema drift
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: crossy_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d crossy_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crossy_ci
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/crossy_ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma validate
+
+      - run: npm run db:deploy
+
+      - run: npm run db:drift-check

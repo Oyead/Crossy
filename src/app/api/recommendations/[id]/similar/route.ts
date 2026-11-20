@@ -79,8 +79,7 @@ export async function GET(
           data: mediaIds.map((mediaId, index) => ({
             queryId: searchQuery.id,
             mediaId,
-            matchReason: matchReasons[index],
-            verified: false
+            matchReason: matchReasons[index]
           })),
           skipDuplicates: true
         })

@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [vector]
 }
 
@@ -65,7 +66,6 @@ model Recommendation {
   mediaId     String
   media       Media       @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
-  verified    Boolean     @default(false)
   matchReason String
   createdAt   DateTime    @default(now())
 
@@ -83,7 +83,6 @@ model User {
   createdAt     DateTime  @default(now())
   favorites     Favorite[]
   accounts      Account[]
-  sessions      Session[]
   searchQueries SearchQuery[]
 }
 
@@ -104,15 +103,6 @@ model Account {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PendingSignup {

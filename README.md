@@ -191,7 +191,7 @@ The top 25 merged results are sent to the LLM with a ranking prompt. The AI retu
 
 ## Database Schema
 
-Nine models backed by PostgreSQL with pgvector:
+Eight models backed by PostgreSQL with pgvector:
 
 - **Media** - Canonical media items with optional 1536-dimension vector embeddings for semantic search
 - **SearchQuery** - Logged search queries with embeddings for finding similar past searches
@@ -199,9 +199,10 @@ Nine models backed by PostgreSQL with pgvector:
 - **Interaction** - Click and impression tracking events for CTR analytics
 - **User** - Application users with optional password field
 - **Account** - NextAuth OAuth account linkage
-- **Session** - NextAuth session records
 - **PendingSignup** - Temporary state for email verification during signup
 - **Favorite** - User's saved media items
+
+Authentication uses JWT sessions, so no database session table is needed. OAuth still requires the `Account` model.
 
 ## API Routes
 
@@ -304,7 +305,28 @@ Fill in the required values in `.env`.
 4. Set up the database
 
 ```bash
-npx prisma db push
+npx prisma migrate deploy
+```
+
+For local prototyping only, `npm run db:push:local` is available. Never use `db push` on a shared database — it bypasses migration history.
+
+If an existing database was created with `db push`, baseline it once instead of re-running the migrations:
+
+```bash
+npx prisma migrate status
+npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script
+npx prisma migrate resolve --applied 20260725175333_add_media_table
+npx prisma migrate resolve --applied 20260822204417_add_user_password
+npx prisma migrate resolve --applied 20261120154500_catch_up_schema_drift
+npx prisma migrate resolve --applied 20261120161000_drop_recommendation_verified
+npx prisma migrate resolve --applied 20261120162000_drop_session
+```
+
+Only mark a migration applied if the diff confirms the database already matches it. If the diff shows the two cleanup changes (`DROP COLUMN "verified"` / `DROP TABLE "Session"`), run `npx prisma migrate deploy` after the data checks below instead of marking those two applied. Before deploying the cleanup migrations, verify there are no rows to lose:
+
+```bash
+psql "$DATABASE_URL" -c 'SELECT count(*) FROM "Recommendation" WHERE "verified" = true;'
+psql "$DATABASE_URL" -c 'SELECT count(*) FROM "Session";'
 ```
 
 5. Run the development server
