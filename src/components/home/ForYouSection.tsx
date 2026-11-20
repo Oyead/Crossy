@@ -62,14 +62,14 @@ export default function ForYouSection() {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {picks.map((pick) => (
             <Link
               key={`${pick.type}-${pick.id}`}
               href={`/media/${pick.type}/${encodeURIComponent(pick.id)}`}
               className={`group border-2 border-[#1a1a15] rounded-xl p-3 ${TYPE_BG[pick.type] ?? "bg-white"} retro-shadow-sm transition-all duration-200 hover:translate-x-0.5 hover:translate-y-0.5`}
             >
-              <div className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-lg border border-[#1a1a15]/20 bg-white">
+              <div className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-lg border border-[#1a1a15]/30 bg-white">
                 {pick.coverImage ? (
                   <img
                     src={pick.coverImage}
@@ -77,7 +77,7 @@ export default function ForYouSection() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <span className="text-xs font-black uppercase text-gray-500">
+                  <span className="text-xs font-black uppercase text-[#1a1a15]/40">
                     {pick.type}
                   </span>
                 )}

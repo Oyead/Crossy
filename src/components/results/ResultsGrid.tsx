@@ -148,7 +148,7 @@ export default function ResultsGrid({ query, results }: ResultsGridProps) {
   return (
     <div className="space-y-16 pb-24">
       {showLoginPrompt && (
-        <div className="fixed bottom-6 right-6 z-50 w-[calc(100%-3rem)] max-w-md animate-fade-up">
+        <div className="fixed bottom-6 right-6 z-50 w-[calc(100%_-_3rem)] max-w-md animate-fade-up">
           <div className="relative flex items-start gap-3 border-2 border-[#1a1a15] bg-[#FFEAA7] rounded-xl px-4 py-3 shadow-[4px_4px_0px_#1a1a15]">
             <Star className="mt-0.5 h-5 w-5 shrink-0 text-[#1a1a15]" fill="#1a1a15" />
             <p className="text-sm font-bold text-[#1a1a15]">

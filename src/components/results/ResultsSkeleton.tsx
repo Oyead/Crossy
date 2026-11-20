@@ -4,12 +4,12 @@ export default function ResultsSkeleton() {
       {["Movies", "Games", "Music", "Books"].map((label, s) => (
         <div
           key={label}
-          className="relative border-2 border-[#1a1a15]/70 bg-white/60 p-6 sm:p-8 rounded-2xl shadow-[6px_6px_0px_rgba(26,26,21,0.7)]"
+          className="relative rounded-2xl border-2 border-[#1a1a15] bg-white/60 p-6 backdrop-blur-sm retro-shadow-md sm:p-8"
         >
-          <span className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-[#1a1a15]/70" />
-          <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-[#1a1a15]/70" />
-          <span className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-[#1a1a15]/70" />
-          <span className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-[#1a1a15]/70" />
+          <span className="absolute -top-1.5 -left-1.5 h-3 w-3 border border-[#1a1a15] bg-[#FFEAA7]" />
+          <span className="absolute -top-1.5 -right-1.5 h-3 w-3 border border-[#1a1a15] bg-[#FFEAA7]" />
+          <span className="absolute -bottom-1.5 -left-1.5 h-3 w-3 border border-[#1a1a15] bg-[#FFEAA7]" />
+          <span className="absolute -bottom-1.5 -right-1.5 h-3 w-3 border border-[#1a1a15] bg-[#FFEAA7]" />
 
           <div className="mb-8 flex items-center justify-between gap-4 border-b-2 border-dashed border-[#1a1a15]/20 pb-4">
             <span className="inline-block h-9 w-32 rounded-lg bg-[#1a1a15]/10 border-2 border-[#1a1a15]/30" />
